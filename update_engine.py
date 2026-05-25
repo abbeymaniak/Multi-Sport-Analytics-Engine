@@ -79,11 +79,48 @@ def init_db():
         home_odds REAL,
         draw_odds REAL,
         away_odds REAL,
+        home_score INTEGER,
+        away_score INTEGER,
+        status TEXT,
+        half_rec TEXT,
+        corners_rec TEXT,
+        gg_both_prob REAL,
+        turnaround_rec TEXT,
         FOREIGN KEY(home_team_id) REFERENCES teams(id),
         FOREIGN KEY(away_team_id) REFERENCES teams(id)
     )
     """)
     
+    # Proactively alter schema for existing databases that were created without these columns
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN home_score INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN away_score INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN status TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN half_rec TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN corners_rec TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN gg_both_prob REAL")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE fixtures ADD COLUMN turnaround_rec TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS h2h_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,9 +158,10 @@ def save_to_sqlite(m):
         cursor.execute("UPDATE teams SET league_rank = ?, form = ? WHERE id = ?", (m.get("away_rank"), away_form_str, away_id))
         
         # 2. Insert Fixture
+        mkts = m.get("markets", {})
         cursor.execute("""
-        INSERT INTO fixtures (kickoff_date, kickoff_time, home_team_id, away_team_id, league, home_odds, draw_odds, away_odds)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO fixtures (kickoff_date, kickoff_time, home_team_id, away_team_id, league, home_odds, draw_odds, away_odds, home_score, away_score, status, half_rec, corners_rec, gg_both_prob, turnaround_rec)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             m.get("date"),
             m.get("time"),
@@ -132,7 +170,14 @@ def save_to_sqlite(m):
             m.get("league"),
             m.get("odds", {}).get("1"),
             m.get("odds", {}).get("X"),
-            m.get("odds", {}).get("2")
+            m.get("odds", {}).get("2"),
+            m.get("home_score"),
+            m.get("away_score"),
+            m.get("status"),
+            mkts.get("most_scoring_half", {}).get("recommendation"),
+            mkts.get("corners", {}).get("recommendation"),
+            mkts.get("gg_both_halves", {}).get("prob"),
+            mkts.get("turnaround", {}).get("recommendation")
         ))
         fixture_id = cursor.lastrowid
         
@@ -293,6 +338,104 @@ def calculate_probabilities(m):
         win_prob = int(max(20, min(95, win_prob)))
         if win_prob >= 70:
             markets["streaks"]["recommendation"] = "AWAY_STREAK"
+
+    # 6. Most Scoring Half
+    # Base split: 2nd half usually gets more goals.
+    # If the combined goals avg is high, 2nd half probability is increased.
+    # If the draw rate is very high, "EQUAL" is increased.
+    half_2h_prob = int(53 + (combined_avg - 2.5) * 5)
+    half_2h_prob = max(40, min(75, half_2h_prob))
+    
+    half_1h_prob = int(35 - (combined_avg - 2.5) * 2)
+    half_1h_prob = max(20, min(45, half_1h_prob))
+    
+    equal_prob = 100 - half_2h_prob - half_1h_prob
+    if avg_form_draws > 0.3:
+        equal_prob += 5
+        half_2h_prob -= 5
+        
+    markets["most_scoring_half"] = {
+        "half_1h_prob": half_1h_prob,
+        "half_2h_prob": half_2h_prob,
+        "equal_prob": equal_prob,
+        "recommendation": "2H" if half_2h_prob >= 50 else ("1H" if half_1h_prob >= 40 else "EQUAL")
+    }
+
+    # 7. Corners (Over / Under 8.5)
+    # Average corners standard is ~9.5. Higher goal bias usually increases corners.
+    corners_over_prob = int(55 + (combined_avg - 2.5) * 6)
+    corners_over_prob = max(30, min(85, corners_over_prob))
+    corners_under_prob = 100 - corners_over_prob
+    
+    markets["corners"] = {
+        "over_85_prob": corners_over_prob,
+        "under_85_prob": corners_under_prob,
+        "recommendation": "OVER_85" if corners_over_prob >= 60 else ("UNDER_85" if corners_under_prob >= 60 else None)
+    }
+
+    # 8. Both Teams to Score in Both Halves (GG/GG)
+    # Derived from standard BTTS probability.
+    # Scan historical matches specifically for both teams scoring in both halves (e.g. 2:2, 3:2, etc.)
+    gg_both_count = 0
+    total_scoreline_matches = 0
+    for h in history:
+        score_match = re.search(r'\s(\d+):(\d+)(?:\s|$)', h.get("detail", ""))
+        if score_match:
+            total_scoreline_matches += 1
+            h_goals = int(score_match.group(1))
+            a_goals = int(score_match.group(2))
+            # Rough proxy: if score has at least 2 goals for each team, high chance of scoring in both halves
+            if h_goals >= 2 and a_goals >= 2:
+                gg_both_count += 1
+                
+    gg_both_percent = gg_both_count / total_scoreline_matches if total_scoreline_matches > 0 else 0.1
+    gg_both_halves_prob = int((prob_btts * prob_btts) / 100 * 0.3 + gg_both_percent * 30)
+    gg_both_halves_prob = max(3, min(35, gg_both_halves_prob))
+    
+    markets["gg_both_halves"] = {
+        "prob": gg_both_halves_prob,
+        "recommendation": "GG/GG" if gg_both_halves_prob >= 15 else None
+    }
+
+    # 9. HT/FT Turnaround (1/2 or 2/1)
+    # Volatility and close rankings increase turnarounds. H2H turnarounds add further boosts.
+    turnaround_count = 0
+    for h in history:
+        # A turnaround is when HT and FT results flip (e.g., home team led but away team won).
+        # We can scan the detail score: e.g. "Away - Home 2:1 (0:1)"
+        match_scores = re.search(r'(\d+):(\d+)\s*\((\d+):(\d+)\)', h.get("detail", ""))
+        if match_scores:
+            ft_h, ft_a, ht_h, ht_a = map(int, match_scores.groups())
+            ht_draw = ht_h == ht_a
+            ft_draw = ft_h == ft_a
+            if not ht_draw and not ft_draw:
+                ht_lead_h = ht_h > ht_a
+                ft_lead_h = ft_h > ft_a
+                if ht_lead_h != ft_lead_h:
+                    turnaround_count += 1
+                    
+    turnaround_percent = turnaround_count / total_scoreline_matches if total_scoreline_matches > 0 else 0.05
+    rank_gap = abs(away_rank - home_rank) if home_rank and away_rank else 10
+    volatility_factor = max(0, min(10, (10 - rank_gap) * 0.5))
+    
+    ht1_ft2_prob = int(4 + turnaround_percent * 25 + volatility_factor)
+    ht2_ft1_prob = int(4 + turnaround_percent * 25 + volatility_factor)
+    
+    # Restrict to realistic turnaround bounds
+    ht1_ft2_prob = max(2, min(18, ht1_ft2_prob))
+    ht2_ft1_prob = max(2, min(18, ht2_ft1_prob))
+    
+    rec_val = None
+    if ht1_ft2_prob >= 8:
+        rec_val = "1/2 TURN"
+    elif ht2_ft1_prob >= 8:
+        rec_val = "2/1 TURN"
+        
+    markets["turnaround"] = {
+        "ht1_ft2_prob": ht1_ft2_prob,
+        "ht2_ft1_prob": ht2_ft1_prob,
+        "recommendation": rec_val
+    }
             
     m["markets"] = markets
     return m
@@ -368,8 +511,19 @@ async def main():
                 m["away_rank"] = None
                 m["home_form"] = []
                 m["away_form"] = []
+                m["status"] = "notstarted"
+                m["home_score"] = None
+                m["away_score"] = None
                 
                 if matched_event:
+                    # Parse status and scores if available
+                    status_type = matched_event.get("status", {}).get("type")
+                    m["status"] = status_type if status_type else "notstarted"
+                    
+                    h_score = matched_event.get("homeScore", {}).get("current")
+                    a_score = matched_event.get("awayScore", {}).get("current")
+                    m["home_score"] = h_score if h_score is not None else None
+                    m["away_score"] = a_score if a_score is not None else None
                     home_team_id = matched_event['homeTeam']['id']
                     away_team_id = matched_event['awayTeam']['id']
                     
