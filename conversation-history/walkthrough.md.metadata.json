@@ -1,0 +1,5 @@
+{
+  "artifactType": "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary": "Modified walkthrough.md to document the dual-URL scraper capabilities (scraping HT/FT odds and H2H streaks draws simultaneously) and the new stateful Back to Top smooth scroll button.",
+  "updatedAt": "2026-05-25T10:21:07.956030Z"
+}
