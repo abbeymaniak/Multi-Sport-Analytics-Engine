@@ -607,10 +607,49 @@ async def main():
     print(f"  Completed: {len(all_matches)} matches processed")
     print(f"{'='*60}")
 
+    # Load existing matches to merge/append instead of overwrite
+    existing_matches = []
+    if os.path.exists(ROOT_OUTPUT_JSON):
+        try:
+            with open(ROOT_OUTPUT_JSON, "r", encoding="utf-8") as f:
+                existing_matches = json.load(f)
+            if not isinstance(existing_matches, list):
+                existing_matches = []
+        except Exception as e:
+            print(f"  [Merge] Warning: Could not parse existing {ROOT_OUTPUT_JSON}: {e}")
+            existing_matches = []
+
+    # Map existing matches to prevent duplicates
+    # De-duplicate by sofascore_event_id (if present) or fall back to date + teams composite key
+    merged_map = {}
+    for m in existing_matches:
+        eid = m.get("sofascore_event_id")
+        if eid:
+            key = f"id_{eid}"
+        else:
+            key = f"key_{m.get('date')}_{m.get('home_team')}_{m.get('away_team')}"
+        merged_map[key] = m
+
+    # Merge/overwrite with newly fetched matches
+    for m in all_matches:
+        eid = m.get("sofascore_event_id")
+        if eid:
+            key = f"id_{eid}"
+        else:
+            key = f"key_{m.get('date')}_{m.get('home_team')}_{m.get('away_team')}"
+        merged_map[key] = m
+
+    # Convert back to list and sort chronologically by date and kickoff time
+    final_matches = list(merged_map.values())
+    try:
+        final_matches.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+    except Exception as e:
+        print(f"  [Merge] Sorting error: {e}")
+
     # Save output using ATOMIC WRITES to prevent the frontend from
     # reading a half-written JSON file during a live refresh.
     # Strategy: write to a .tmp file, then os.replace() swaps it in instantly.
-    json_payload = json.dumps(all_matches, indent=2, ensure_ascii=False)
+    json_payload = json.dumps(final_matches, indent=2, ensure_ascii=False)
 
     # Root copy
     tmp_root = ROOT_OUTPUT_JSON + ".tmp"

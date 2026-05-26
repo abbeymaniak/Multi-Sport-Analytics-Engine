@@ -62,7 +62,7 @@ The system calculates mathematically derived probabilities for:
 - **Collapsible H2H Inspector (Grid & List)**: Allows users to tap any match card or list row to smoothly expand and view exact historical head-to-head match histories.
 - **Match Status Tracking**: Real-time status badges visually reflect current states: `● LIVE` (pulsing neon emerald green for active matches), `FT` (muted finished layout), `PP` (muted rose for postponed games), and `🕐 HH:MM` (kickoff time for scheduled matches). In list view layouts, kickoff times are elegantly preserved and displayed directly beneath active status badges (LIVE/FT/PP) for full temporal context.
 - **Dynamic Cup & Friendly Highlighting**: Any match card/row in List View belonging to a cup competition or friendly match (detected by `CUP`, `cup`, `Cup`, or `Friendly` in the league name title attribute) is highlighted with a custom premium frosted crimson/light-red glassmorphic background.
-- **Bookmarking Capability**: Bookmark individual fixtures of interest. Bookmarks use a stable composite match key (`date_homeTeam_awayTeam`) to ensure expanding or saving matches remains robust, correct, and state-synchronized even when sorting, filtering, or switching tabs.
+- **Bookmarking Capability**: Bookmark individual fixtures of interest. Bookmarks use a stable composite match key (`date_homeTeam_awayTeam`) to ensure expanding or saving matches remains robust, correct, and state-synchronized even when sorting, filtering, or switching tabs. Bookmarks are **persistently saved** inside the browser's `localStorage`, keeping your selections intact across page reloads and refreshes.
 
 
 ---

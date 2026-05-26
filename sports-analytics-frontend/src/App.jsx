@@ -43,10 +43,25 @@ function App() {
   const [activeTab, setActiveTab] = useState("DOUBLE_CHANCE"); // Default to Double Chance safety picks
   const [sortBy, setSortBy] = useState("PROBABILITY"); // Default to sorting by probability
   const [expandedCards, setExpandedCards] = useState({});
-  const [favorites, setFavorites] = useState({});
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sports_favorites");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [layoutMode, setLayoutMode] = useState("GRID"); // "GRID" or "LINE"
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("sports_favorites", JSON.stringify(favorites));
+    } catch (e) {
+      console.error("Error saving favorites to localStorage:", e);
+    }
+  }, [favorites]);
 
   // Fetch the Multi-Sports analyzed JSON database
   const fetchData = async () => {
@@ -132,10 +147,15 @@ function App() {
   // Toggle bookmark favorites
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
-    setFavorites((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setFavorites((prev) => {
+      const next = { ...prev };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = true;
+      }
+      return next;
+    });
   };
 
   // Generate unique list of leagues and dates for dropdown selectors
