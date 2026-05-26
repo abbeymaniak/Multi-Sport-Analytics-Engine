@@ -1,0 +1,11 @@
+{
+  "name": "multi-sports-analytics-engine-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root workspace workspace scripts",
+  "scripts": {
+    "dev": "npm run dev --prefix sports-analytics-frontend",
+    "build": "npm run build --prefix sports-analytics-frontend",
+    "preview": "npm run preview --prefix sports-analytics-frontend"
+  }
+}

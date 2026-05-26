@@ -31,7 +31,7 @@ const getTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
-function App() {
+function SofascoreData() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,10 +52,10 @@ function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/sports_data.json?t=${Date.now()}`);
+      const response = await fetch(`/sofascore_data.json?t=${Date.now()}`);
       if (!response.ok) {
         throw new Error(
-          "Failed to fetch sports analyzed data. Please verify update_engine.py completed successfully.",
+          "Failed to fetch SofaScore data. Please verify sofascoredata.py completed successfully.",
         );
       }
       const data = await response.json();
@@ -64,18 +64,19 @@ function App() {
       // Intelligently select default date:
       //   1. Today's date if present in data
       //   2. Nearest future date (e.g. tomorrow) if today has no data
-      //   3. Most recent past date as fallback
+      //   3. First available date as fallback
       if (data && data.length > 0) {
         const uniqueDates = Array.from(new Set(data.map(m => m.date).filter(Boolean))).sort();
         const today = getTodayString();
         if (uniqueDates.includes(today)) {
           setSelectedDate(today);
         } else {
+          // Pick nearest future date first, else first in list
           const futureDates = uniqueDates.filter(d => d >= today);
           if (futureDates.length > 0) {
             setSelectedDate(futureDates[0]);
           } else if (uniqueDates.length > 0) {
-            setSelectedDate(uniqueDates[uniqueDates.length - 1]);
+            setSelectedDate(uniqueDates[uniqueDates.length - 1]); // most recent past
           } else {
             setSelectedDate("ALL");
           }
@@ -86,7 +87,7 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(
-        "Could not load the sports_data.json file. Check if the database update script was executed.",
+        "Could not load sofascore_data.json. Check if sofascoredata.py was executed.",
       );
     } finally {
       setLoading(false);
@@ -152,7 +153,7 @@ function App() {
     matches.forEach((m) => {
       if (m.date) dates.add(m.date);
     });
-    // Only include dates that actually have data
+    // Only include dates that actually have data — don't force-add today
     return ["ALL", ...Array.from(dates).sort()];
   }, [matches]);
 
@@ -389,14 +390,14 @@ function App() {
     <div className="app-container fade-in">
       {/* Premium Dashboard Header */}
       <header className="app-header">
-        <div className="brand-badge">
-          <Trophy size={14} fill="currentColor" /> Multi-Sports Value Engine
+        <div className="brand-badge" style={{ color: "var(--accent-cyan)" }}>
+          <Zap size={14} fill="currentColor" /> SofaScore Direct Feed
         </div>
-        <h1 className="app-title">Multi-Sports Analytics Engine</h1>
+        <h1 className="app-title">SofaScore Live Data Engine</h1>
         <p className="app-subtitle">
-          Advanced predictive modeling executing structured SQLite relational
-          analysis across multiple high-yield sports betting markets. Fuzzy
-          matches schedules, standing positions, and H2H records in real-time.
+          Real-time predictive analytics sourced exclusively from SofaScore APIs.
+          Events, standings, form, H2H history, and odds fetched directly —
+          no external scrapers required.
         </p>
       </header>
 
@@ -408,9 +409,9 @@ function App() {
             size={48}
             style={{ color: "var(--accent-gold)" }}
           />
-          <div className="empty-title">Compiling Sports Database...</div>
+          <div className="empty-title">Loading SofaScore Data...</div>
           <div className="empty-desc">
-            Parsing update_engine SQLite structures and calculating
+            Parsing SofaScore API responses and calculating
             probabilities.
           </div>
         </div>
@@ -757,8 +758,7 @@ function App() {
               analyzed fixtures
             </div>
             <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-              * Toggle cards to inspect SQLite chronological head-to-head
-              records.
+              * Toggle cards to inspect SofaScore head-to-head records.
             </div>
           </div>
 
@@ -817,9 +817,13 @@ function App() {
                           <span className="league-badge" title={match.league}>
                             {match.league}
                           </span>
-                          <span className={`time-badge ${match.status === "finished" ? "finished" : ""}`}>
+                          <span className={`time-badge ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}>
                             {match.status === "finished" ? (
                               <span className="status-finished-tag">FT</span>
+                            ) : match.status === "inprogress" ? (
+                              <span className="status-live-tag">● LIVE</span>
+                            ) : match.status === "postponed" ? (
+                              <span className="status-postponed-tag">PP</span>
                             ) : (
                               <>
                                 <Clock size={12} /> {match.time || "TBD"}
@@ -1343,8 +1347,7 @@ function App() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SQLite Persisted H2H Matches ({match.history.length}
-                              )
+                              SofaScore H2H Matches ({match.history.length})
                             </span>
                             <span>Date</span>
                           </div>
@@ -1507,10 +1510,10 @@ function App() {
                         {/* 1. Date & Time Badges */}
                         <div className="line-date-time">
                           <span className="line-date">{match.date}</span>
-                          <span className={`line-time ${match.status === "finished" ? "finished" : ""}`}>
-                            {match.status === "finished" ? "FT" : match.time || "TBD"}
+                          <span className={`line-time ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}>
+                            {match.status === "finished" ? "FT" : match.status === "inprogress" ? "● LIVE" : match.status === "postponed" ? "PP" : match.time || "TBD"}
                           </span>
-                          {match.status === "finished" && match.time && (
+                          {(match.status === "finished" || match.status === "inprogress" || match.status === "postponed") && match.time && (
                             <span className="line-kickoff-time">
                               <Clock size={11} /> {match.time}
                             </span>
@@ -1750,8 +1753,7 @@ function App() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SQLite Persisted H2H Matches ({match.history.length}
-                              )
+                              SofaScore H2H Matches ({match.history.length})
                             </span>
                             <span>Date</span>
                           </div>
@@ -1821,16 +1823,16 @@ function App() {
       {/* Footer Section */}
       <footer className="app-footer">
         <div className="footer-text">
-          Multi-Sports Analytics Engine Dashboard • SQLite v3 Relational
-          Persistence • Active Today
+          SofaScore Live Data Engine • Direct API Pipeline •
+          Active Today
         </div>
         <div
           className="footer-text"
           style={{ fontSize: "0.75rem", opacity: 0.6 }}
         >
-          Designed with ❤️ utilizing Vite React and curating obsidian
-          aesthetics. Sports predictions are calculations, not absolute
-          guarantees.
+          Powered by SofaScore APIs with ❤️ utilizing Vite React
+          and obsidian aesthetics. Sports predictions are calculations,
+          not absolute guarantees.
         </div>
       </footer>
 
@@ -1854,4 +1856,4 @@ function roundGoalsBias(g1, g2) {
   return (parseFloat(g1) + parseFloat(g2)).toFixed(2);
 }
 
-export default App;
+export default SofascoreData;

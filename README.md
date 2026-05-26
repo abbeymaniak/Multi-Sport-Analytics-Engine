@@ -13,16 +13,23 @@ Multi-Sports-Analytics-Engine/
 ├── sports-analytics-frontend/   # Premium Vite + React Frontend Dashboard
 │   ├── src/                     # React application source code
 │   │   ├── App.jsx              # Main dashboard component with filters, charts, and collapsible cards
+│   │   ├── SofascoreData.jsx    # Standalone SofaScore feed component at /sofascoredata
 │   │   ├── index.css            # Dark Obsidian-Metallic glassmorphic design system styles
 │   │   ├── App.css              # Structural stylesheet overrides
-│   │   └── main.jsx             # React framework entrypoint
+│   │   └── main.jsx             # React framework entrypoint with BrowserRouter routing
 │   ├── public/                  # Static web resources
-│   │   └── sports_data.json     # Copied output of calculated JSON data served to the dashboard
+│   │   ├── sports_data.json     # Copied output of calculated JSON data served to the dashboard
+│   │   └── sofascore_data.json  # Standalone SofaScore live data JSON served to /sofascoredata
 │   ├── package.json             # React & Vite packages manifest
-│   └── vite.config.js           # Vite development server configuration
+│   └── vite.config.js           # Vite development server configuration with SPA fallback
+├── package.json                 # Root package.json with redirect scripts
+├── sofascoredata.py             # Standalone SofaScore Ingestion & 9-Market Calculation Pipeline (Dual-Endpoint Feed)
+├── sofascore_data.json          # Standalone SofaScore processed dataset
 ├── sports_analytics.db          # Relational SQLite database
 ├── sports_data.json             # Root-level processed and calculated JSON database
-└── update_engine.py             # Playwright/SQLite Data Pipeline & Predictive Analytics Engine
+├── update_engine.py             # Playwright/SQLite Data Pipeline & Predictive Analytics Engine
+└── update_scores.py             # Standalone Live Score and Match Status Patch Updater
+
 ```
 
 ---
@@ -52,8 +59,11 @@ The system calculates mathematically derived probabilities for:
 - **Dynamic Counters**: Showcases tallies for matches meeting safety parameters across all five categories in real-time.
 - **Comprehensive Filtering**: Real-time fuzzy team search, dynamic league selection dropdowns, kickoff date filtering, and multi-variable sorting (by probability, value/EV, kickoff time, or league).
 - **Interactive Form Indicators**: Shows a team's last five games as glowing dots (Green for **W**, Orange for **D**, Red for **L**).
-- **Collapsible H2H Inspector**: Allows users to tap any match card to smoothly expand and list exact persisted SQLite head-to-head matchups and highlight historically drawn games.
-- **Bookmarking Capability**: Locally save individual fixtures of interest.
+- **Collapsible H2H Inspector (Grid & List)**: Allows users to tap any match card or list row to smoothly expand and view exact historical head-to-head match histories.
+- **Match Status Tracking**: Real-time status badges visually reflect current states: `● LIVE` (pulsing neon emerald green for active matches), `FT` (muted finished layout), `PP` (muted rose for postponed games), and `🕐 HH:MM` (kickoff time for scheduled matches). In list view layouts, kickoff times are elegantly preserved and displayed directly beneath active status badges (LIVE/FT/PP) for full temporal context.
+- **Dynamic Cup & Friendly Highlighting**: Any match card/row in List View belonging to a cup competition or friendly match (detected by `CUP`, `cup`, `Cup`, or `Friendly` in the league name title attribute) is highlighted with a custom premium frosted crimson/light-red glassmorphic background.
+- **Bookmarking Capability**: Bookmark individual fixtures of interest. Bookmarks use a stable composite match key (`date_homeTeam_awayTeam`) to ensure expanding or saving matches remains robust, correct, and state-synchronized even when sorting, filtering, or switching tabs.
+
 
 ---
 
@@ -130,20 +140,63 @@ python update_engine.py
 This updates `sports_analytics.db` and writes both `sports_data.json` (root) and copies it into the frontend's static path at `sports-analytics-frontend/public/sports_data.json`.
 
 ### Step 3: Run the React Frontend
-Navigate to the frontend application directory, install package dependencies, and fire up the local development web server:
+You can now start the React frontend dev server directly from the root workspace directory or from the frontend directory:
 
 ```bash
-# Enter the frontend folder
+# Option A: Start from the root folder (highly recommended)
+npm run dev
+
+# Option B: Start from the frontend folder
 cd sports-analytics-frontend
-
-# Install node dependencies
 npm install
-
-# Start the local development server (Vite)
 npm run dev
 ```
 
-Open your web browser and navigate to the address shown in the terminal (usually `http://localhost:5173`) to view the interactive dashboard.
+Open your web browser and navigate to:
+- `http://localhost:5173/` — To view the core **Multi-Sports Analytics Engine** dashboard.
+- `http://localhost:5173/sofascoredata` — To view the dedicated **SofaScore Live Data Engine** dashboard feed.
+
+---
+
+## 🛰️ Standalone SofaScore Data Feed
+
+In addition to the core analytics engine, the project features a **completely standalone SofaScore Data Feed pipeline**:
+
+1. **`sofascoredata.py`**: A dedicated Python script that uses Playwright to fetch daily events directly from SofaScore APIs.
+   - **Dual-Endpoint Gathering**: SofaScore splits daily events across two separate endpoints: `/scheduled-events/{date}` (primary batch) and `/scheduled-events/{date}/inverse` (inverse batch). The pipeline queries **both** endpoints, aggregates, and de-duplicates them, enabling full data collection (1000+ events on peak days) rather than just the first batch.
+   - It automatically downloads:
+     - Today's global fixtures and scheduled matches.
+     - Real-time tournament tables and standings positioning.
+     - Comprehensive team form sequences.
+     - Historical Head-to-Head (H2H) match history and outcomes.
+     - Active bookmaker 1X2 odds.
+     - Processes all data through the 9 predictive betting models.
+   - **Atomic JSON Writes**: Both the full pipeline and the score updater perform **atomic file-swapping** (writing to `.json.tmp` and running `os.replace()`) to prevent the dashboard frontend from reading empty or partially-written JSON files.
+2. **`update_scores.py`**: A highly efficient score and match status patcher that runs in seconds.
+   - Instead of re-scraping standings, form, and H2H data for hundreds of games (which requires 500+ requests and takes ~15 minutes), it queries SofaScore's dual event APIs in **2 bulk requests** and updates scores, match times, and active statuses in place inside `sofascore_data.json`.
+   - Preserves all calculated betting analytics, probability metrics, and standings details from the last full run.
+3. **`/sofascoredata` route**: A client-side routed React dashboard powered by `react-router-dom` that mirrors the core layout but renders SofaScore live data directly, branded with a custom design.
+
+### Run SofaScore Standalone Feed:
+```bash
+# Run full crawler for today's date (fetches standings, forms, H2Hs, odds, predictions)
+python sofascoredata.py
+
+# Run full crawler for a custom date
+python sofascoredata.py 2026-05-27
+```
+
+### Run Live Score Updater (Lightweight):
+```bash
+# Instant score update for today (updates scores/statuses, keeps pre-calculated analytics)
+python update_scores.py
+
+# Instant score update for a custom date
+python update_scores.py 2026-05-27
+```
+Outputs data atomically directly into `/sports-analytics-frontend/public/sofascore_data.json`.
+
+
 
 ---
 
