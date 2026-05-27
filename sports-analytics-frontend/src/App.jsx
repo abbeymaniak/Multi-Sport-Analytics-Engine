@@ -31,6 +31,74 @@ const getTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper to extract country flag from league name
+const getLeagueFlag = (leagueName) => {
+  if (!leagueName) return "";
+  const parts = leagueName.split(" » ");
+  const rawCountry = parts[0].trim().toLowerCase();
+  
+  // Clean variations like "Amateur", "&", and trim
+  const cleanCountry = rawCountry.replace(" amateur", "").replace(" & ", " and ").trim();
+  
+  // Map country name to ISO two-letter code
+  const countryToIso = {
+    "afghanistan": "af", "albania": "al", "algeria": "dz", "andorra": "ad", "angola": "ao",
+    "anguilla": "ai", "argentina": "ar", "armenia": "am", "aruba": "aw", "asia": "un",
+    "australia": "au", "austria": "at", "azerbaijan": "az", "barbados": "bb", "belarus": "by",
+    "belgium": "be", "bhutan": "bt", "bolivia": "bo", "bonaire": "bq",
+    "bosnia and herzegovina": "ba", "brazil": "br", "bulgaria": "bg", "cambodia": "kh",
+    "cameroon": "cm", "canada": "ca", "chile": "cl", "china": "cn", "chinese taipei": "tw",
+    "colombia": "co", "comoros": "km", "croatia": "hr", "cuba": "cu", "cyprus": "cy",
+    "czech republic": "cz", "czechia": "cz", "dr congo": "cd", "denmark": "dk",
+    "dominica": "dm", "ecuador": "ec", "egypt": "eg", "el salvador": "sv", "estonia": "ee",
+    "ethiopia": "et", "europe": "eu", "faroe islands": "fo", "finland": "fi", "france": "fr",
+    "gabon": "ga", "georgia": "ge", "germany": "de", "ghana": "gh", "greece": "gr",
+    "guinea-bissau": "gw", "honduras": "hn", "hong kong": "hk", "hungary": "hu",
+    "iceland": "is", "india": "in", "indonesia": "id", "international clubs": "un",
+    "iran": "ir", "iraq": "iq", "ireland": "ie", "israel": "il", "italy": "it", "japan": "jp",
+    "kazakhstan": "kz", "kenya": "ke", "kuwait": "kw", "kyrgyzstan": "kg", "latvia": "lv",
+    "lithuania": "lt", "luxembourg": "lu", "macao": "mo", "madagascar": "mg", "malawi": "mw",
+    "mali": "ml", "martinique": "mq", "moldova": "md", "montenegro": "me", "morocco": "ma",
+    "netherlands": "nl", "new zealand": "nz", "niger": "ne", "nigeria": "ng",
+    "northern ireland": "gb-nir", "norway": "no", "paraguay": "py", "peru": "pe",
+    "philippines": "ph", "poland": "pl", "portugal": "pt", "puerto rico": "pr", "qatar": "qa",
+    "romania": "ro", "russia": "ru", "rwanda": "rw", "scotland": "gb-sct", "serbia": "rs",
+    "sierra leone": "sl", "singapore": "sg", "slovakia": "sk", "slovenia": "si",
+    "somalia": "so", "south africa": "za", "south america": "un", "south korea": "kr",
+    "spain": "es", "sudan": "sd", "sweden": "se", "switzerland": "ch", "tahiti": "pf",
+    "tajikistan": "tj", "tanzania": "tz", "thailand": "th", "tunisia": "tn", "turkey": "tr",
+    "usa": "us", "united states": "us", "ukraine": "ua", "united arab emirates": "ae",
+    "united kingdom": "gb", "uruguay": "uy", "uzbekistan": "uz", "vietnam": "vn",
+    "wales": "gb-wls", "world": "un", "zimbabwe": "zw"
+  };
+
+  const iso = countryToIso[cleanCountry];
+  if (!iso) return "🌐"; // Fallback to world globe for unknown categories
+  
+  if (iso === "un") return "🌐";
+  if (iso === "eu") return "🇪🇺";
+  if (iso === "gb-eng") return "🏴󠁧󠁢󠁥󠁮󠁧󠁿"; // England
+  if (iso === "gb-sct") return "🏴󠁧󠁢󠁳󠁣󠁴󠁿"; // Scotland
+  if (iso === "gb-wls") return "🏴󠁧󠁢󠁷󠁬󠁳󠁿"; // Wales
+  if (iso === "gb-nir") return "🇬🇧"; // Northern Ireland fallback
+  
+  try {
+    const codePoints = iso.toUpperCase().split("").map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return "🌐";
+  }
+};
+
+// Helper to filter out specific matches based on forbidden league terms
+const shouldFilterOutLeague = (league) => {
+  if (!league) return false;
+  // Forbidden league terms: u14, u15, u16, u17, u13, liga 6, juniori, round-robin, klasa, liga veterana, Amateur, IV, puchar, Derde, vierde, fkf, V
+  // Roman numerals IV and V use word boundaries (\biv\b and \bv\b) to avoid false positives (like division or vs)
+  const forbiddenRegex = /u14|u15|u16|u17|u13|liga 6|juniori|round-robin|klasa|liga veterana|amateur|puchar|derde|vierde|fkf|\biv\b|\bv\b/i;
+  return forbiddenRegex.test(league);
+};
+
 function App() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -162,7 +230,9 @@ function App() {
   const leaguesList = useMemo(() => {
     const leagues = new Set();
     matches.forEach((m) => {
-      if (m.league) leagues.add(m.league);
+      if (m.league && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+        leagues.add(m.league);
+      }
     });
     return ["ALL", ...Array.from(leagues).sort()];
   }, [matches]);
@@ -170,7 +240,9 @@ function App() {
   const datesList = useMemo(() => {
     const dates = new Set();
     matches.forEach((m) => {
-      if (m.date) dates.add(m.date);
+      if (m.date && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+        dates.add(m.date);
+      }
     });
     // Only include dates that actually have data
     return ["ALL", ...Array.from(dates).sort()];
@@ -243,7 +315,13 @@ function App() {
 
   // Filter & Sort matches dynamically based on active tab and inputs
   const filteredAndSortedMatches = useMemo(() => {
-    let result = [...matches];
+    // Filter out matches that have no H2H data and matches from forbidden leagues
+    let result = matches.filter(
+      (m) =>
+        m.history &&
+        m.history.length > 0 &&
+        !shouldFilterOutLeague(m.league),
+    );
 
     // 1. Text Search Input
     if (searchTerm.trim()) {
@@ -835,7 +913,7 @@ function App() {
                       <div className="card-header-section">
                         <div className="league-time-row">
                           <span className="league-badge" title={match.league}>
-                            {match.league}
+                            {getLeagueFlag(match.league)} {match.league}
                           </span>
                           <span className={`time-badge ${match.status === "finished" ? "finished" : ""}`}>
                             {match.status === "finished" ? (
@@ -1363,14 +1441,22 @@ function App() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SQLite Persisted H2H Matches ({match.history.length}
-                              )
+                              {activeTab === "DRAWS" || activeTab === "H2H_DRAWS"
+                                ? `SQLite Persisted H2H Draws (${match.history.filter((h) => h.is_marked).length})`
+                                : `SQLite Persisted H2H Matches (${match.history.length})`}
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history.map((hist, hIdx) => {
+                              match.history
+                                .filter((hist) => {
+                                  if (activeTab === "DRAWS" || activeTab === "H2H_DRAWS") {
+                                    return !!hist.is_marked;
+                                  }
+                                  return true;
+                                })
+                                .map((hist, hIdx) => {
                                 return (
                                   <div
                                     key={hIdx}
@@ -1539,7 +1625,7 @@ function App() {
 
                         {/* 2. League Label */}
                         <div className="line-league" title={match.league}>
-                          {match.league.split(" » ").pop() || match.league}
+                          {getLeagueFlag(match.league)} {match.league.split(" » ").pop() || match.league}
                         </div>
 
                         {/* 3. Team Roster straight aligned */}
@@ -1770,14 +1856,22 @@ function App() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SQLite Persisted H2H Matches ({match.history.length}
-                              )
+                              {activeTab === "DRAWS" || activeTab === "H2H_DRAWS"
+                                ? `SQLite Persisted H2H Draws (${match.history.filter((h) => h.is_marked).length})`
+                                : `SQLite Persisted H2H Matches (${match.history.length})`}
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history.map((hist, hIdx) => {
+                              match.history
+                                .filter((hist) => {
+                                  if (activeTab === "DRAWS" || activeTab === "H2H_DRAWS") {
+                                    return !!hist.is_marked;
+                                  }
+                                  return true;
+                                })
+                                .map((hist, hIdx) => {
                                 return (
                                   <div
                                     key={hIdx}

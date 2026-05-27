@@ -31,6 +31,180 @@ const getTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper to extract country flag from league name
+const getLeagueFlag = (leagueName) => {
+  if (!leagueName) return "";
+  const parts = leagueName.split(" » ");
+  const rawCountry = parts[0].trim().toLowerCase();
+
+  // Clean variations like "Amateur", "&", and trim
+  const cleanCountry = rawCountry
+    .replace(" amateur", "")
+    .replace(" & ", " and ")
+    .trim();
+
+  // Map country name to ISO two-letter code
+  const countryToIso = {
+    afghanistan: "af",
+    albania: "al",
+    algeria: "dz",
+    andorra: "ad",
+    angola: "ao",
+    anguilla: "ai",
+    argentina: "ar",
+    armenia: "am",
+    aruba: "aw",
+    asia: "un",
+    australia: "au",
+    austria: "at",
+    azerbaijan: "az",
+    barbados: "bb",
+    belarus: "by",
+    belgium: "be",
+    bhutan: "bt",
+    bolivia: "bo",
+    bonaire: "bq",
+    "bosnia and herzegovina": "ba",
+    brazil: "br",
+    bulgaria: "bg",
+    cambodia: "kh",
+    cameroon: "cm",
+    canada: "ca",
+    chile: "cl",
+    china: "cn",
+    "chinese taipei": "tw",
+    colombia: "co",
+    comoros: "km",
+    croatia: "hr",
+    cuba: "cu",
+    cyprus: "cy",
+    "czech republic": "cz",
+    czechia: "cz",
+    "dr congo": "cd",
+    denmark: "dk",
+    dominica: "dm",
+    ecuador: "ec",
+    egypt: "eg",
+    "el salvador": "sv",
+    estonia: "ee",
+    ethiopia: "et",
+    europe: "eu",
+    "faroe islands": "fo",
+    finland: "fi",
+    france: "fr",
+    gabon: "ga",
+    georgia: "ge",
+    germany: "de",
+    ghana: "gh",
+    greece: "gr",
+    "guinea-bissau": "gw",
+    honduras: "hn",
+    "hong kong": "hk",
+    hungary: "hu",
+    iceland: "is",
+    india: "in",
+    indonesia: "id",
+    "international clubs": "un",
+    iran: "ir",
+    iraq: "iq",
+    ireland: "ie",
+    israel: "il",
+    italy: "it",
+    japan: "jp",
+    kazakhstan: "kz",
+    kenya: "ke",
+    kuwait: "kw",
+    kyrgyzstan: "kg",
+    latvia: "lv",
+    lithuania: "lt",
+    luxembourg: "lu",
+    macao: "mo",
+    madagascar: "mg",
+    malawi: "mw",
+    mali: "ml",
+    martinique: "mq",
+    moldova: "md",
+    montenegro: "me",
+    morocco: "ma",
+    netherlands: "nl",
+    "new zealand": "nz",
+    niger: "ne",
+    nigeria: "ng",
+    "northern ireland": "gb-nir",
+    norway: "no",
+    paraguay: "py",
+    peru: "pe",
+    philippines: "ph",
+    poland: "pl",
+    portugal: "pt",
+    "puerto rico": "pr",
+    qatar: "qa",
+    romania: "ro",
+    russia: "ru",
+    rwanda: "rw",
+    scotland: "gb-sct",
+    serbia: "rs",
+    "sierra leone": "sl",
+    singapore: "sg",
+    slovakia: "sk",
+    slovenia: "si",
+    somalia: "so",
+    "south africa": "za",
+    "south america": "un",
+    "south korea": "kr",
+    spain: "es",
+    sudan: "sd",
+    sweden: "se",
+    switzerland: "ch",
+    tahiti: "pf",
+    tajikistan: "tj",
+    tanzania: "tz",
+    thailand: "th",
+    tunisia: "tn",
+    turkey: "tr",
+    usa: "us",
+    "united states": "us",
+    ukraine: "ua",
+    "united arab emirates": "ae",
+    "united kingdom": "gb",
+    uruguay: "uy",
+    uzbekistan: "uz",
+    vietnam: "vn",
+    wales: "gb-wls",
+    world: "un",
+    zimbabwe: "zw",
+  };
+
+  const iso = countryToIso[cleanCountry];
+  if (!iso) return "🌐"; // Fallback to world globe for unknown categories
+
+  if (iso === "un") return "🌐";
+  if (iso === "eu") return "🇪🇺";
+  if (iso === "gb-eng") return "🏴󠁧󠁢󠁥󠁮󠁧󠁿"; // England
+  if (iso === "gb-sct") return "🏴󠁧󠁢󠁳󠁣󠁴󠁿"; // Scotland
+  if (iso === "gb-wls") return "🏴󠁧󠁢󠁷󠁬󠁳󠁿"; // Wales
+  if (iso === "gb-nir") return "🇬🇧"; // Northern Ireland fallback
+
+  try {
+    const codePoints = iso
+      .toUpperCase()
+      .split("")
+      .map((char) => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return "🌐";
+  }
+};
+
+// Helper to filter out specific matches based on forbidden league terms
+const shouldFilterOutLeague = (league) => {
+  if (!league) return false;
+  // Forbidden league terms: u14, u15, u16, u17, u13, liga 6, juniori, round-robin, klasa, liga veterana, Amateur, IV, puchar, Derde, vierde, fkf, V
+  // Roman numerals IV and V use word boundaries (\biv\b and \bv\b) to avoid false positives (like division or vs)
+  const forbiddenRegex = /u14|u15|u16|u17|u13|liga 6|juniori|round-robin|klasa|liga veterana|amateur|puchar|derde|vierde|fkf|\biv\b|\bv\b/i;
+  return forbiddenRegex.test(league);
+};
+
 function SofascoreData() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,13 +255,15 @@ function SofascoreData() {
       //   2. Nearest future date (e.g. tomorrow) if today has no data
       //   3. First available date as fallback
       if (data && data.length > 0) {
-        const uniqueDates = Array.from(new Set(data.map(m => m.date).filter(Boolean))).sort();
+        const uniqueDates = Array.from(
+          new Set(data.map((m) => m.date).filter(Boolean)),
+        ).sort();
         const today = getTodayString();
         if (uniqueDates.includes(today)) {
           setSelectedDate(today);
         } else {
           // Pick nearest future date first, else first in list
-          const futureDates = uniqueDates.filter(d => d >= today);
+          const futureDates = uniqueDates.filter((d) => d >= today);
           if (futureDates.length > 0) {
             setSelectedDate(futureDates[0]);
           } else if (uniqueDates.length > 0) {
@@ -163,7 +339,9 @@ function SofascoreData() {
   const leaguesList = useMemo(() => {
     const leagues = new Set();
     matches.forEach((m) => {
-      if (m.league) leagues.add(m.league);
+      if (m.league && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+        leagues.add(m.league);
+      }
     });
     return ["ALL", ...Array.from(leagues).sort()];
   }, [matches]);
@@ -171,7 +349,9 @@ function SofascoreData() {
   const datesList = useMemo(() => {
     const dates = new Set();
     matches.forEach((m) => {
-      if (m.date) dates.add(m.date);
+      if (m.date && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+        dates.add(m.date);
+      }
     });
     // Only include dates that actually have data — don't force-add today
     return ["ALL", ...Array.from(dates).sort()];
@@ -244,7 +424,13 @@ function SofascoreData() {
 
   // Filter & Sort matches dynamically based on active tab and inputs
   const filteredAndSortedMatches = useMemo(() => {
-    let result = [...matches];
+    // Filter out matches that have no H2H data and matches from forbidden leagues
+    let result = matches.filter(
+      (m) =>
+        m.history &&
+        m.history.length > 0 &&
+        !shouldFilterOutLeague(m.league),
+    );
 
     // 1. Text Search Input
     if (searchTerm.trim()) {
@@ -288,7 +474,9 @@ function SofascoreData() {
         return isConsecutive2Draws || (last3.length >= 2 && drawCount >= 2);
       });
     } else if (activeTab === "SCORING_HALF") {
-      result = result.filter((m) => m.markets?.most_scoring_half?.recommendation);
+      result = result.filter(
+        (m) => m.markets?.most_scoring_half?.recommendation,
+      );
     } else if (activeTab === "CORNERS") {
       result = result.filter((m) => m.markets?.corners?.recommendation);
     } else if (activeTab === "GG_BOTH") {
@@ -344,14 +532,29 @@ function SofascoreData() {
         } else if (activeTab === "DRAWS" || activeTab === "H2H_DRAWS") {
           return (bMkts.draw_value?.prob || 0) - (aMkts.draw_value?.prob || 0);
         } else if (activeTab === "SCORING_HALF") {
-          return (bMkts.most_scoring_half?.half_2h_prob || 0) - (aMkts.most_scoring_half?.half_2h_prob || 0);
+          return (
+            (bMkts.most_scoring_half?.half_2h_prob || 0) -
+            (aMkts.most_scoring_half?.half_2h_prob || 0)
+          );
         } else if (activeTab === "CORNERS") {
-          return (bMkts.corners?.over_85_prob || 0) - (aMkts.corners?.over_85_prob || 0);
+          return (
+            (bMkts.corners?.over_85_prob || 0) -
+            (aMkts.corners?.over_85_prob || 0)
+          );
         } else if (activeTab === "GG_BOTH") {
-          return (bMkts.gg_both_halves?.prob || 0) - (aMkts.gg_both_halves?.prob || 0);
+          return (
+            (bMkts.gg_both_halves?.prob || 0) -
+            (aMkts.gg_both_halves?.prob || 0)
+          );
         } else if (activeTab === "TURNAROUND") {
-          const aMax = Math.max(aMkts.turnaround?.ht1_ft2_prob || 0, aMkts.turnaround?.ht2_ft1_prob || 0);
-          const bMax = Math.max(bMkts.turnaround?.ht1_ft2_prob || 0, bMkts.turnaround?.ht2_ft1_prob || 0);
+          const aMax = Math.max(
+            aMkts.turnaround?.ht1_ft2_prob || 0,
+            aMkts.turnaround?.ht2_ft1_prob || 0,
+          );
+          const bMax = Math.max(
+            bMkts.turnaround?.ht1_ft2_prob || 0,
+            bMkts.turnaround?.ht2_ft1_prob || 0,
+          );
           return bMax - aMax;
         }
         return b.marked_count - a.marked_count; // Default to historical draw counts
@@ -413,11 +616,11 @@ function SofascoreData() {
         <div className="brand-badge" style={{ color: "var(--accent-cyan)" }}>
           <Zap size={14} fill="currentColor" /> SofaScore Direct Feed
         </div>
-        <h1 className="app-title">SofaScore Live Data Engine</h1>
+        <h1 className="app-title">Hugoboss Live Data Engine</h1>
         <p className="app-subtitle">
-          Real-time predictive analytics sourced exclusively from SofaScore APIs.
-          Events, standings, form, H2H history, and odds fetched directly —
-          no external scrapers required.
+          Real-time predictive analytics sourced exclusively from SofaScore
+          APIs. Events, standings, form, H2H history, and odds fetched directly
+          — no external scrapers required.
         </p>
       </header>
 
@@ -431,8 +634,7 @@ function SofascoreData() {
           />
           <div className="empty-title">Loading SofaScore Data...</div>
           <div className="empty-desc">
-            Parsing SofaScore API responses and calculating
-            probabilities.
+            Parsing SofaScore API responses and calculating probabilities.
           </div>
         </div>
       )}
@@ -835,9 +1037,11 @@ function SofascoreData() {
                       <div className="card-header-section">
                         <div className="league-time-row">
                           <span className="league-badge" title={match.league}>
-                            {match.league}
+                            {getLeagueFlag(match.league)} {match.league}
                           </span>
-                          <span className={`time-badge ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}>
+                          <span
+                            className={`time-badge ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}
+                          >
                             {match.status === "finished" ? (
                               <span className="status-finished-tag">FT</span>
                             ) : match.status === "inprogress" ? (
@@ -858,9 +1062,12 @@ function SofascoreData() {
                               {match.home_team}
                             </span>
                             <div className="team-stats-summary">
-                              {match.home_score !== undefined && match.home_score !== null && (
-                                <span className="score-display">{match.home_score}</span>
-                              )}
+                              {match.home_score !== undefined &&
+                                match.home_score !== null && (
+                                  <span className="score-display">
+                                    {match.home_score}
+                                  </span>
+                                )}
                               {match.home_rank && (
                                 <span
                                   className="team-rank-badge"
@@ -880,9 +1087,12 @@ function SofascoreData() {
                               {match.away_team}
                             </span>
                             <div className="team-stats-summary">
-                              {match.away_score !== undefined && match.away_score !== null && (
-                                <span className="score-display">{match.away_score}</span>
-                              )}
+                              {match.away_score !== undefined &&
+                                match.away_score !== null && (
+                                  <span className="score-display">
+                                    {match.away_score}
+                                  </span>
+                                )}
                               {match.away_rank && (
                                 <span
                                   className="team-rank-badge"
@@ -1019,7 +1229,9 @@ function SofascoreData() {
                         {/* 4. Straight Winning Streaks */}
                         <div
                           className="prediction-widget-row"
-                          style={{ opacity: activeTab === "STREAKS" ? 1 : 0.65 }}
+                          style={{
+                            opacity: activeTab === "STREAKS" ? 1 : 0.65,
+                          }}
                         >
                           <span className="prediction-label">
                             <Flame
@@ -1106,7 +1318,9 @@ function SofascoreData() {
                         {/* 6. Most Scoring Half */}
                         <div
                           className="prediction-widget-row"
-                          style={{ opacity: activeTab === "SCORING_HALF" ? 1 : 0.65 }}
+                          style={{
+                            opacity: activeTab === "SCORING_HALF" ? 1 : 0.65,
+                          }}
                         >
                           <span className="prediction-label">
                             <TrendingUp
@@ -1117,11 +1331,21 @@ function SofascoreData() {
                           </span>
                           <div className="prediction-value-col">
                             {halfRec && (
-                              <span className="recommendation-badge half" style={{ background: "rgba(139, 92, 246, 0.1)", color: "var(--accent-violet)", border: "1px solid rgba(139, 92, 246, 0.3)" }}>
+                              <span
+                                className="recommendation-badge half"
+                                style={{
+                                  background: "rgba(139, 92, 246, 0.1)",
+                                  color: "var(--accent-violet)",
+                                  border: "1px solid rgba(139, 92, 246, 0.3)",
+                                }}
+                              >
                                 {halfRec}
                               </span>
                             )}
-                            <div className="mini-progress-bar-bg" title={`1H: ${mkts.most_scoring_half?.half_1h_prob || 0}% | 2H: ${mkts.most_scoring_half?.half_2h_prob || 0}% | EQ: ${mkts.most_scoring_half?.equal_prob || 0}%`}>
+                            <div
+                              className="mini-progress-bar-bg"
+                              title={`1H: ${mkts.most_scoring_half?.half_1h_prob || 0}% | 2H: ${mkts.most_scoring_half?.half_2h_prob || 0}% | EQ: ${mkts.most_scoring_half?.equal_prob || 0}%`}
+                            >
                               <div
                                 className="mini-progress-bar-fill half"
                                 style={{
@@ -1142,7 +1366,9 @@ function SofascoreData() {
                         {/* 7. Corners O/U 8.5 */}
                         <div
                           className="prediction-widget-row"
-                          style={{ opacity: activeTab === "CORNERS" ? 1 : 0.65 }}
+                          style={{
+                            opacity: activeTab === "CORNERS" ? 1 : 0.65,
+                          }}
                         >
                           <span className="prediction-label">
                             <Award
@@ -1156,7 +1382,9 @@ function SofascoreData() {
                               <span
                                 className={`recommendation-badge ${cornersRec === "OVER_85" ? "over" : "under"}`}
                               >
-                                {cornersRec === "OVER_85" ? "OVER 8.5" : "UNDER 8.5"}
+                                {cornersRec === "OVER_85"
+                                  ? "OVER 8.5"
+                                  : "UNDER 8.5"}
                               </span>
                             )}
                             <div className="mini-progress-bar-bg">
@@ -1183,7 +1411,9 @@ function SofascoreData() {
                         {/* 8. GG/GG Both Halves */}
                         <div
                           className="prediction-widget-row"
-                          style={{ opacity: activeTab === "GG_BOTH" ? 1 : 0.65 }}
+                          style={{
+                            opacity: activeTab === "GG_BOTH" ? 1 : 0.65,
+                          }}
                         >
                           <span className="prediction-label">
                             <Flame
@@ -1194,7 +1424,14 @@ function SofascoreData() {
                           </span>
                           <div className="prediction-value-col">
                             {ggBothRec && (
-                              <span className="recommendation-badge gg-both" style={{ background: "rgba(236, 72, 153, 0.1)", color: "var(--accent-rose)", border: "1px solid rgba(236, 72, 153, 0.3)" }}>
+                              <span
+                                className="recommendation-badge gg-both"
+                                style={{
+                                  background: "rgba(236, 72, 153, 0.1)",
+                                  color: "var(--accent-rose)",
+                                  border: "1px solid rgba(236, 72, 153, 0.3)",
+                                }}
+                              >
                                 GG/GG YES
                               </span>
                             )}
@@ -1218,7 +1455,9 @@ function SofascoreData() {
                         {/* 9. HT/FT Turnaround */}
                         <div
                           className="prediction-widget-row"
-                          style={{ opacity: activeTab === "TURNAROUND" ? 1 : 0.65 }}
+                          style={{
+                            opacity: activeTab === "TURNAROUND" ? 1 : 0.65,
+                          }}
                         >
                           <span className="prediction-label">
                             <RefreshCw
@@ -1229,7 +1468,10 @@ function SofascoreData() {
                           </span>
                           <div className="prediction-value-col">
                             {turnaroundRec && (
-                              <span className="recommendation-badge draw" style={{ padding: "2px 6px" }}>
+                              <span
+                                className="recommendation-badge draw"
+                                style={{ padding: "2px 6px" }}
+                              >
                                 {turnaroundRec}
                               </span>
                             )}
@@ -1261,8 +1503,8 @@ function SofascoreData() {
                         <div className="primary-market-info-chip">
                           {activeTab === "DOUBLE_CHANCE" && (
                             <span>
-                              🏡 1X: {mkts.double_chance?.home_1x_prob}% | ✈️ 2X:{" "}
-                              {mkts.double_chance?.away_2x_prob}%
+                              🏡 1X: {mkts.double_chance?.home_1x_prob}% | ✈️
+                              2X: {mkts.double_chance?.away_2x_prob}%
                             </span>
                           )}
                           {activeTab === "OVER_UNDER" && (
@@ -1280,8 +1522,8 @@ function SofascoreData() {
                           )}
                           {activeTab === "STREAKS" && (
                             <span>
-                              Active Streaks: Home {mkts.streaks?.home_streak}W |
-                              Away {mkts.streaks?.away_streak}W
+                              Active Streaks: Home {mkts.streaks?.home_streak}W
+                              | Away {mkts.streaks?.away_streak}W
                             </span>
                           )}
                           {activeTab === "DRAWS" && (
@@ -1298,25 +1540,34 @@ function SofascoreData() {
                           )}
                           {activeTab === "SCORING_HALF" && (
                             <span>
-                              Goal Halves: 1H {mkts.most_scoring_half?.half_1h_prob}% | 2H {mkts.most_scoring_half?.half_2h_prob}% | EQ {mkts.most_scoring_half?.equal_prob}%
+                              Goal Halves: 1H{" "}
+                              {mkts.most_scoring_half?.half_1h_prob}% | 2H{" "}
+                              {mkts.most_scoring_half?.half_2h_prob}% | EQ{" "}
+                              {mkts.most_scoring_half?.equal_prob}%
                             </span>
                           )}
                           {activeTab === "CORNERS" && (
                             <span>
-                              Corners Bias: Over 8.5 ({mkts.corners?.over_85_prob}%) | Under 8.5 ({mkts.corners?.under_85_prob}%)
+                              Corners Bias: Over 8.5 (
+                              {mkts.corners?.over_85_prob}%) | Under 8.5 (
+                              {mkts.corners?.under_85_prob}%)
                             </span>
                           )}
                           {activeTab === "GG_BOTH" && (
                             <span>
-                              GG Both Halves Probability: {mkts.gg_both_halves?.prob}%
+                              GG Both Halves Probability:{" "}
+                              {mkts.gg_both_halves?.prob}%
                             </span>
                           )}
                           {activeTab === "TURNAROUND" && (
                             <span>
-                              HT/FT Flips: HT1/FT2 ({mkts.turnaround?.ht1_ft2_prob}%) | HT2/FT1 ({mkts.turnaround?.ht2_ft1_prob}%)
+                              HT/FT Flips: HT1/FT2 (
+                              {mkts.turnaround?.ht1_ft2_prob}%) | HT2/FT1 (
+                              {mkts.turnaround?.ht2_ft1_prob}%)
                             </span>
                           )}
-                          {(activeTab === "ALL" || activeTab === "FAVORITES") && (
+                          {(activeTab === "ALL" ||
+                            activeTab === "FAVORITES") && (
                             <span>
                               Marked draws count: {match.marked_count} out of{" "}
                               {match.total_history_count} H2H
@@ -1367,39 +1618,52 @@ function SofascoreData() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SofaScore H2H Matches ({match.history.length})
+                              {activeTab === "DRAWS" ||
+                              activeTab === "H2H_DRAWS"
+                                ? `SofaScore H2H Draws (${match.history.filter((h) => h.is_marked).length})`
+                                : `SofaScore H2H Matches (${match.history.length})`}
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history.map((hist, hIdx) => {
-                                return (
-                                  <div
-                                    key={hIdx}
-                                    className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
-                                  >
-                                    <span className="history-fixture">
-                                      {hist.detail}
-                                    </span>
-                                    <span className="history-date">
-                                      {hist.is_marked && (
-                                        <span
-                                          style={{
-                                            color: "var(--accent-gold)",
-                                            marginRight: "6px",
-                                            fontSize: "0.62rem",
-                                            fontWeight: 800,
-                                          }}
-                                        >
-                                          [DRAW]
-                                        </span>
-                                      )}
-                                      {hist.date}
-                                    </span>
-                                  </div>
-                                );
-                              })
+                              match.history
+                                .filter((hist) => {
+                                  if (
+                                    activeTab === "DRAWS" ||
+                                    activeTab === "H2H_DRAWS"
+                                  ) {
+                                    return !!hist.is_marked;
+                                  }
+                                  return true;
+                                })
+                                .map((hist, hIdx) => {
+                                  return (
+                                    <div
+                                      key={hIdx}
+                                      className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
+                                    >
+                                      <span className="history-fixture">
+                                        {hist.detail}
+                                      </span>
+                                      <span className="history-date">
+                                        {hist.is_marked && (
+                                          <span
+                                            style={{
+                                              color: "var(--accent-gold)",
+                                              marginRight: "6px",
+                                              fontSize: "0.62rem",
+                                              fontWeight: 800,
+                                            }}
+                                          >
+                                            [DRAW]
+                                          </span>
+                                        )}
+                                        {hist.date}
+                                      </span>
+                                    </div>
+                                  );
+                                })
                             ) : (
                               <div
                                 style={{
@@ -1440,16 +1704,26 @@ function SofascoreData() {
 
                   // Determine active highlights for single row borders
                   let rowClass = "";
-                  if (activeTab === "DOUBLE_CHANCE" && dcRec) rowClass = "highlight-dc";
-                  else if (activeTab === "OVER_UNDER" && ouRec) rowClass = `highlight-${ouRec === "OVER_25" ? "over" : "under"}`;
-                  else if (activeTab === "BTTS" && bttsRec) rowClass = "highlight-btts";
-                  else if (activeTab === "STREAKS" && streakRec) rowClass = "highlight-streaks";
-                  else if (activeTab === "DRAWS" && drawRec) rowClass = "highlight-draws";
-                  else if (activeTab === "H2H_DRAWS") rowClass = "highlight-h2h-draws";
-                  else if (activeTab === "SCORING_HALF" && halfRec) rowClass = "highlight-scoring-half";
-                  else if (activeTab === "CORNERS" && cornersRec) rowClass = `highlight-${cornersRec === "OVER_85" ? "corners-over" : "corners-under"}`;
-                  else if (activeTab === "GG_BOTH" && ggBothRec) rowClass = "highlight-gg-both";
-                  else if (activeTab === "TURNAROUND" && turnaroundRec) rowClass = "highlight-turnaround";
+                  if (activeTab === "DOUBLE_CHANCE" && dcRec)
+                    rowClass = "highlight-dc";
+                  else if (activeTab === "OVER_UNDER" && ouRec)
+                    rowClass = `highlight-${ouRec === "OVER_25" ? "over" : "under"}`;
+                  else if (activeTab === "BTTS" && bttsRec)
+                    rowClass = "highlight-btts";
+                  else if (activeTab === "STREAKS" && streakRec)
+                    rowClass = "highlight-streaks";
+                  else if (activeTab === "DRAWS" && drawRec)
+                    rowClass = "highlight-draws";
+                  else if (activeTab === "H2H_DRAWS")
+                    rowClass = "highlight-h2h-draws";
+                  else if (activeTab === "SCORING_HALF" && halfRec)
+                    rowClass = "highlight-scoring-half";
+                  else if (activeTab === "CORNERS" && cornersRec)
+                    rowClass = `highlight-${cornersRec === "OVER_85" ? "corners-over" : "corners-under"}`;
+                  else if (activeTab === "GG_BOTH" && ggBothRec)
+                    rowClass = "highlight-gg-both";
+                  else if (activeTab === "TURNAROUND" && turnaroundRec)
+                    rowClass = "highlight-turnaround";
 
                   // Extract primary recommendation text and color coding
                   let activeRec = "";
@@ -1457,49 +1731,108 @@ function SofascoreData() {
                   let activeColor = "var(--text-secondary)";
                   let graphType = "DC";
 
-                  if (activeTab === "DOUBLE_CHANCE" || (activeTab === "ALL" && dcRec) || (activeTab === "FAVORITES" && dcRec)) {
+                  if (
+                    activeTab === "DOUBLE_CHANCE" ||
+                    (activeTab === "ALL" && dcRec) ||
+                    (activeTab === "FAVORITES" && dcRec)
+                  ) {
                     activeRec = dcRec ? `${dcRec} SAFE` : "";
-                    activeProb = Math.max(mkts.double_chance?.home_1x_prob || 0, mkts.double_chance?.away_2x_prob || 0);
+                    activeProb = Math.max(
+                      mkts.double_chance?.home_1x_prob || 0,
+                      mkts.double_chance?.away_2x_prob || 0,
+                    );
                     activeColor = "var(--accent-emerald)";
                     graphType = "DC";
-                  } else if (activeTab === "OVER_UNDER" || (activeTab === "ALL" && ouRec) || (activeTab === "FAVORITES" && ouRec)) {
+                  } else if (
+                    activeTab === "OVER_UNDER" ||
+                    (activeTab === "ALL" && ouRec) ||
+                    (activeTab === "FAVORITES" && ouRec)
+                  ) {
                     activeRec = ouRec === "OVER_25" ? "OVER 2.5" : "UNDER 2.5";
-                    activeProb = Math.max(mkts.over_under?.over_25_prob || 0, mkts.over_under?.under_25_prob || 0);
+                    activeProb = Math.max(
+                      mkts.over_under?.over_25_prob || 0,
+                      mkts.over_under?.under_25_prob || 0,
+                    );
                     activeColor = "var(--accent-cyan)";
                     graphType = "OU";
-                  } else if (activeTab === "BTTS" || (activeTab === "ALL" && bttsRec) || (activeTab === "FAVORITES" && bttsRec)) {
+                  } else if (
+                    activeTab === "BTTS" ||
+                    (activeTab === "ALL" && bttsRec) ||
+                    (activeTab === "FAVORITES" && bttsRec)
+                  ) {
                     activeRec = "BTTS YES";
                     activeProb = mkts.btts?.prob || 0;
                     activeColor = "var(--accent-orange)";
                     graphType = "BTTS";
-                  } else if (activeTab === "STREAKS" || (activeTab === "ALL" && streakRec) || (activeTab === "FAVORITES" && streakRec)) {
-                    activeRec = streakRec === "HOME_STREAK" ? `${mkts.streaks?.home_streak}W HOME` : `${mkts.streaks?.away_streak}W AWAY`;
-                    activeProb = Math.max(mkts.streaks?.home_streak || 0, mkts.streaks?.away_streak || 0) * 10;
+                  } else if (
+                    activeTab === "STREAKS" ||
+                    (activeTab === "ALL" && streakRec) ||
+                    (activeTab === "FAVORITES" && streakRec)
+                  ) {
+                    activeRec =
+                      streakRec === "HOME_STREAK"
+                        ? `${mkts.streaks?.home_streak}W HOME`
+                        : `${mkts.streaks?.away_streak}W AWAY`;
+                    activeProb =
+                      Math.max(
+                        mkts.streaks?.home_streak || 0,
+                        mkts.streaks?.away_streak || 0,
+                      ) * 10;
                     activeColor = "var(--accent-rose)";
                     graphType = "STREAK";
-                  } else if (activeTab === "DRAWS" || activeTab === "H2H_DRAWS" || (activeTab === "ALL" && drawRec) || (activeTab === "FAVORITES" && drawRec)) {
-                    activeRec = drawRec ? `${mkts.draw_value?.ev} EV` : "DRAW VALUE";
+                  } else if (
+                    activeTab === "DRAWS" ||
+                    activeTab === "H2H_DRAWS" ||
+                    (activeTab === "ALL" && drawRec) ||
+                    (activeTab === "FAVORITES" && drawRec)
+                  ) {
+                    activeRec = drawRec
+                      ? `${mkts.draw_value?.ev} EV`
+                      : "DRAW VALUE";
                     activeProb = mkts.draw_value?.prob || 0;
                     activeColor = "var(--accent-gold)";
                     graphType = "DRAW";
-                  } else if (activeTab === "SCORING_HALF" || (activeTab === "ALL" && halfRec) || (activeTab === "FAVORITES" && halfRec)) {
+                  } else if (
+                    activeTab === "SCORING_HALF" ||
+                    (activeTab === "ALL" && halfRec) ||
+                    (activeTab === "FAVORITES" && halfRec)
+                  ) {
                     activeRec = halfRec || "";
                     activeProb = mkts.most_scoring_half?.half_2h_prob || 0;
                     activeColor = "var(--accent-violet)";
                     graphType = "HALF";
-                  } else if (activeTab === "CORNERS" || (activeTab === "ALL" && cornersRec) || (activeTab === "FAVORITES" && cornersRec)) {
-                    activeRec = cornersRec === "OVER_85" ? "OVER 8.5" : "UNDER 8.5";
-                    activeProb = Math.max(mkts.corners?.over_85_prob || 0, mkts.corners?.under_85_prob || 0);
+                  } else if (
+                    activeTab === "CORNERS" ||
+                    (activeTab === "ALL" && cornersRec) ||
+                    (activeTab === "FAVORITES" && cornersRec)
+                  ) {
+                    activeRec =
+                      cornersRec === "OVER_85" ? "OVER 8.5" : "UNDER 8.5";
+                    activeProb = Math.max(
+                      mkts.corners?.over_85_prob || 0,
+                      mkts.corners?.under_85_prob || 0,
+                    );
                     activeColor = "var(--accent-cyan)";
                     graphType = "CORNERS";
-                  } else if (activeTab === "GG_BOTH" || (activeTab === "ALL" && ggBothRec) || (activeTab === "FAVORITES" && ggBothRec)) {
+                  } else if (
+                    activeTab === "GG_BOTH" ||
+                    (activeTab === "ALL" && ggBothRec) ||
+                    (activeTab === "FAVORITES" && ggBothRec)
+                  ) {
                     activeRec = "GG/GG YES";
                     activeProb = mkts.gg_both_halves?.prob || 0;
                     activeColor = "var(--accent-rose)";
                     graphType = "GG_BOTH";
-                  } else if (activeTab === "TURNAROUND" || (activeTab === "ALL" && turnaroundRec) || (activeTab === "FAVORITES" && turnaroundRec)) {
+                  } else if (
+                    activeTab === "TURNAROUND" ||
+                    (activeTab === "ALL" && turnaroundRec) ||
+                    (activeTab === "FAVORITES" && turnaroundRec)
+                  ) {
                     activeRec = turnaroundRec || "";
-                    activeProb = Math.max(mkts.turnaround?.ht1_ft2_prob || 0, mkts.turnaround?.ht2_ft1_prob || 0);
+                    activeProb = Math.max(
+                      mkts.turnaround?.ht1_ft2_prob || 0,
+                      mkts.turnaround?.ht2_ft1_prob || 0,
+                    );
                     activeColor = "var(--accent-gold)";
                     graphType = "TURNAROUND";
                   }
@@ -1508,7 +1841,10 @@ function SofascoreData() {
                   if (!activeRec) {
                     if (dcRec) {
                       activeRec = `${dcRec} SAFE`;
-                      activeProb = Math.max(mkts.double_chance?.home_1x_prob || 0, mkts.double_chance?.away_2x_prob || 0);
+                      activeProb = Math.max(
+                        mkts.double_chance?.home_1x_prob || 0,
+                        mkts.double_chance?.away_2x_prob || 0,
+                      );
                       activeColor = "var(--accent-emerald)";
                       graphType = "DC";
                     } else {
@@ -1518,7 +1854,9 @@ function SofascoreData() {
                     }
                   }
 
-                  const isCupOrFriendly = match.league && /cup|friendly/i.test(match.league);
+                  const isCupOrFriendly =
+                    match.league &&
+                    /cup|friendly|kup|copa|coupe/i.test(match.league);
 
                   return (
                     <article
@@ -1530,35 +1868,55 @@ function SofascoreData() {
                         {/* 1. Date & Time Badges */}
                         <div className="line-date-time">
                           <span className="line-date">{match.date}</span>
-                          <span className={`line-time ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}>
-                            {match.status === "finished" ? "FT" : match.status === "inprogress" ? "● LIVE" : match.status === "postponed" ? "PP" : match.time || "TBD"}
+                          <span
+                            className={`line-time ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}
+                          >
+                            {match.status === "finished"
+                              ? "FT"
+                              : match.status === "inprogress"
+                                ? "● LIVE"
+                                : match.status === "postponed"
+                                  ? "PP"
+                                  : match.time || "TBD"}
                           </span>
-                          {(match.status === "finished" || match.status === "inprogress" || match.status === "postponed") && match.time && (
-                            <span className="line-kickoff-time">
-                              <Clock size={11} /> {match.time}
-                            </span>
-                          )}
+                          {(match.status === "finished" ||
+                            match.status === "inprogress" ||
+                            match.status === "postponed") &&
+                            match.time && (
+                              <span className="line-kickoff-time">
+                                <Clock size={11} /> {match.time}
+                              </span>
+                            )}
                         </div>
 
                         {/* 2. League Label */}
                         <div className="line-league" title={match.league}>
+                          {getLeagueFlag(match.league)}{" "}
                           {match.league.split(" » ").pop() || match.league}
                         </div>
 
                         {/* 3. Team Roster straight aligned */}
                         <div className="line-teams-roster">
                           <div className="line-team home">
-                            <span className="line-team-name" title={match.home_team}>
+                            <span
+                              className="line-team-name"
+                              title={match.home_team}
+                            >
                               {match.home_team}
                             </span>
                             {match.home_rank && (
-                              <span className="line-team-rank">#{match.home_rank}</span>
+                              <span className="line-team-rank">
+                                #{match.home_rank}
+                              </span>
                             )}
                             {renderFormDots(match.home_form)}
                           </div>
 
                           <div className="line-scoreline">
-                            {match.home_score !== undefined && match.home_score !== null && match.away_score !== undefined && match.away_score !== null ? (
+                            {match.home_score !== undefined &&
+                            match.home_score !== null &&
+                            match.away_score !== undefined &&
+                            match.away_score !== null ? (
                               <span className="line-score-val">
                                 {match.home_score} - {match.away_score}
                               </span>
@@ -1570,9 +1928,14 @@ function SofascoreData() {
                           <div className="line-team away">
                             {renderFormDots(match.away_form)}
                             {match.away_rank && (
-                              <span className="line-team-rank">#{match.away_rank}</span>
+                              <span className="line-team-rank">
+                                #{match.away_rank}
+                              </span>
                             )}
-                            <span className="line-team-name" title={match.away_team}>
+                            <span
+                              className="line-team-name"
+                              title={match.away_team}
+                            >
                               {match.away_team}
                             </span>
                           </div>
@@ -1593,7 +1956,10 @@ function SofascoreData() {
                         </div>
 
                         {/* 5. Large Probability Text */}
-                        <div className="line-prob-pct" style={{ color: activeColor }}>
+                        <div
+                          className="line-prob-pct"
+                          style={{ color: activeColor }}
+                        >
                           {activeProb}%
                         </div>
 
@@ -1603,17 +1969,23 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-3">
                               <div
                                 className="line-progress-segment p-1h"
-                                style={{ width: `${mkts.most_scoring_half?.half_1h_prob || 30}%` }}
+                                style={{
+                                  width: `${mkts.most_scoring_half?.half_1h_prob || 30}%`,
+                                }}
                                 title={`1H Goal Prob: ${mkts.most_scoring_half?.half_1h_prob || 30}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-eq"
-                                style={{ width: `${mkts.most_scoring_half?.equal_prob || 20}%` }}
+                                style={{
+                                  width: `${mkts.most_scoring_half?.equal_prob || 20}%`,
+                                }}
                                 title={`Equal Goal Prob: ${mkts.most_scoring_half?.equal_prob || 20}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-2h"
-                                style={{ width: `${mkts.most_scoring_half?.half_2h_prob || 50}%` }}
+                                style={{
+                                  width: `${mkts.most_scoring_half?.half_2h_prob || 50}%`,
+                                }}
                                 title={`2H Goal Prob: ${mkts.most_scoring_half?.half_2h_prob || 50}%`}
                               ></div>
                             </div>
@@ -1623,12 +1995,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-1x"
-                                style={{ width: `${Math.round(((mkts.double_chance?.home_1x_prob || 50) / ((mkts.double_chance?.home_1x_prob || 50) + (mkts.double_chance?.away_2x_prob || 50))) * 100)}%` }}
+                                style={{
+                                  width: `${Math.round(((mkts.double_chance?.home_1x_prob || 50) / ((mkts.double_chance?.home_1x_prob || 50) + (mkts.double_chance?.away_2x_prob || 50))) * 100)}%`,
+                                }}
                                 title={`1X Bias: ${mkts.double_chance?.home_1x_prob || 50}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-2x"
-                                style={{ width: `${100 - Math.round(((mkts.double_chance?.home_1x_prob || 50) / ((mkts.double_chance?.home_1x_prob || 50) + (mkts.double_chance?.away_2x_prob || 50))) * 100)}%` }}
+                                style={{
+                                  width: `${100 - Math.round(((mkts.double_chance?.home_1x_prob || 50) / ((mkts.double_chance?.home_1x_prob || 50) + (mkts.double_chance?.away_2x_prob || 50))) * 100)}%`,
+                                }}
                                 title={`2X Bias: ${mkts.double_chance?.away_2x_prob || 50}%`}
                               ></div>
                             </div>
@@ -1638,12 +2014,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-over"
-                                style={{ width: `${mkts.over_under?.over_25_prob || 50}%` }}
+                                style={{
+                                  width: `${mkts.over_under?.over_25_prob || 50}%`,
+                                }}
                                 title={`Over 2.5: ${mkts.over_under?.over_25_prob || 50}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-under"
-                                style={{ width: `${mkts.over_under?.under_25_prob || 50}%` }}
+                                style={{
+                                  width: `${mkts.over_under?.under_25_prob || 50}%`,
+                                }}
                                 title={`Under 2.5: ${mkts.over_under?.under_25_prob || 50}%`}
                               ></div>
                             </div>
@@ -1658,7 +2038,9 @@ function SofascoreData() {
                               ></div>
                               <div
                                 className="line-progress-segment p-no"
-                                style={{ width: `${100 - (mkts.btts?.prob || 50)}%` }}
+                                style={{
+                                  width: `${100 - (mkts.btts?.prob || 50)}%`,
+                                }}
                                 title={`BTTS No: ${100 - (mkts.btts?.prob || 50)}%`}
                               ></div>
                             </div>
@@ -1668,12 +2050,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-home-streak"
-                                style={{ width: `${mkts.streaks?.home_streak || mkts.streaks?.away_streak ? Math.round(((mkts.streaks?.home_streak || 0) / ((mkts.streaks?.home_streak || 0) + (mkts.streaks?.away_streak || 0) || 1)) * 100) : 50}%` }}
+                                style={{
+                                  width: `${mkts.streaks?.home_streak || mkts.streaks?.away_streak ? Math.round(((mkts.streaks?.home_streak || 0) / ((mkts.streaks?.home_streak || 0) + (mkts.streaks?.away_streak || 0) || 1)) * 100) : 50}%`,
+                                }}
                                 title={`Home Streak: ${mkts.streaks?.home_streak || 0}`}
                               ></div>
                               <div
                                 className="line-progress-segment p-away-streak"
-                                style={{ width: `${mkts.streaks?.home_streak || mkts.streaks?.away_streak ? 100 - Math.round(((mkts.streaks?.home_streak || 0) / ((mkts.streaks?.home_streak || 0) + (mkts.streaks?.away_streak || 0) || 1)) * 100) : 50}%` }}
+                                style={{
+                                  width: `${mkts.streaks?.home_streak || mkts.streaks?.away_streak ? 100 - Math.round(((mkts.streaks?.home_streak || 0) / ((mkts.streaks?.home_streak || 0) + (mkts.streaks?.away_streak || 0) || 1)) * 100) : 50}%`,
+                                }}
                                 title={`Away Streak: ${mkts.streaks?.away_streak || 0}`}
                               ></div>
                             </div>
@@ -1683,12 +2069,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-draw"
-                                style={{ width: `${mkts.draw_value?.prob || 25}%` }}
+                                style={{
+                                  width: `${mkts.draw_value?.prob || 25}%`,
+                                }}
                                 title={`Draw Value: ${mkts.draw_value?.prob || 25}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-rem"
-                                style={{ width: `${100 - (mkts.draw_value?.prob || 25)}%` }}
+                                style={{
+                                  width: `${100 - (mkts.draw_value?.prob || 25)}%`,
+                                }}
                                 title={`Decisive Out: ${100 - (mkts.draw_value?.prob || 25)}%`}
                               ></div>
                             </div>
@@ -1698,12 +2088,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-corners-over"
-                                style={{ width: `${mkts.corners?.over_85_prob || 50}%` }}
+                                style={{
+                                  width: `${mkts.corners?.over_85_prob || 50}%`,
+                                }}
                                 title={`Over 8.5 Corners: ${mkts.corners?.over_85_prob || 50}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-corners-under"
-                                style={{ width: `${mkts.corners?.under_85_prob || 50}%` }}
+                                style={{
+                                  width: `${mkts.corners?.under_85_prob || 50}%`,
+                                }}
                                 title={`Under 8.5 Corners: ${mkts.corners?.under_85_prob || 50}%`}
                               ></div>
                             </div>
@@ -1713,12 +2107,16 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-2">
                               <div
                                 className="line-progress-segment p-gg-yes"
-                                style={{ width: `${(mkts.gg_both_halves?.prob || 10) * 2.8}%` }}
+                                style={{
+                                  width: `${(mkts.gg_both_halves?.prob || 10) * 2.8}%`,
+                                }}
                                 title={`GG Both Halves: ${mkts.gg_both_halves?.prob || 10}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-gg-no"
-                                style={{ width: `${100 - (mkts.gg_both_halves?.prob || 10) * 2.8}%` }}
+                                style={{
+                                  width: `${100 - (mkts.gg_both_halves?.prob || 10) * 2.8}%`,
+                                }}
                                 title={`GG Standard: ${100 - (mkts.gg_both_halves?.prob || 10) * 2.8}%`}
                               ></div>
                             </div>
@@ -1728,17 +2126,23 @@ function SofascoreData() {
                             <div className="line-progress-graph-container split-3">
                               <div
                                 className="line-progress-segment p-t12"
-                                style={{ width: `${mkts.turnaround?.ht1_ft2_prob || 5}%` }}
+                                style={{
+                                  width: `${mkts.turnaround?.ht1_ft2_prob || 5}%`,
+                                }}
                                 title={`HT 1 / FT 2: ${mkts.turnaround?.ht1_ft2_prob || 5}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-t21"
-                                style={{ width: `${mkts.turnaround?.ht2_ft1_prob || 5}%` }}
+                                style={{
+                                  width: `${mkts.turnaround?.ht2_ft1_prob || 5}%`,
+                                }}
                                 title={`HT 2 / FT 1: ${mkts.turnaround?.ht2_ft1_prob || 5}%`}
                               ></div>
                               <div
                                 className="line-progress-segment p-trem"
-                                style={{ width: `${100 - (mkts.turnaround?.ht1_ft2_prob || 5) - (mkts.turnaround?.ht2_ft1_prob || 5)}%` }}
+                                style={{
+                                  width: `${100 - (mkts.turnaround?.ht1_ft2_prob || 5) - (mkts.turnaround?.ht2_ft1_prob || 5)}%`,
+                                }}
                                 title={`Steady Outcome: ${100 - (mkts.turnaround?.ht1_ft2_prob || 5) - (mkts.turnaround?.ht2_ft1_prob || 5)}%`}
                               ></div>
                             </div>
@@ -1750,10 +2154,15 @@ function SofascoreData() {
                           <button
                             onClick={(e) => toggleFavorite(e, matchKey)}
                             className={`line-fav-btn ${isFavorite ? "active" : ""}`}
-                            title={isFavorite ? "Remove bookmark" : "Bookmark match"}
+                            title={
+                              isFavorite ? "Remove bookmark" : "Bookmark match"
+                            }
                           >
                             {isFavorite ? (
-                              <BookmarkCheck size={18} style={{ color: "var(--accent-gold)" }} />
+                              <BookmarkCheck
+                                size={18}
+                                style={{ color: "var(--accent-gold)" }}
+                              />
                             ) : (
                               <Bookmark size={18} />
                             )}
@@ -1773,39 +2182,52 @@ function SofascoreData() {
                         >
                           <div className="history-header-row">
                             <span>
-                              SofaScore H2H Matches ({match.history.length})
+                              {activeTab === "DRAWS" ||
+                              activeTab === "H2H_DRAWS"
+                                ? `SofaScore H2H Draws (${match.history.filter((h) => h.is_marked).length})`
+                                : `SofaScore H2H Matches (${match.history.length})`}
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history.map((hist, hIdx) => {
-                                return (
-                                  <div
-                                    key={hIdx}
-                                    className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
-                                  >
-                                    <span className="history-fixture">
-                                      {hist.detail}
-                                    </span>
-                                    <span className="history-date">
-                                      {hist.is_marked && (
-                                        <span
-                                          style={{
-                                            color: "var(--accent-gold)",
-                                            marginRight: "6px",
-                                            fontSize: "0.62rem",
-                                            fontWeight: 800,
-                                          }}
-                                        >
-                                          [DRAW]
-                                        </span>
-                                      )}
-                                      {hist.date}
-                                    </span>
-                                  </div>
-                                );
-                              })
+                              match.history
+                                .filter((hist) => {
+                                  if (
+                                    activeTab === "DRAWS" ||
+                                    activeTab === "H2H_DRAWS"
+                                  ) {
+                                    return !!hist.is_marked;
+                                  }
+                                  return true;
+                                })
+                                .map((hist, hIdx) => {
+                                  return (
+                                    <div
+                                      key={hIdx}
+                                      className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
+                                    >
+                                      <span className="history-fixture">
+                                        {hist.detail}
+                                      </span>
+                                      <span className="history-date">
+                                        {hist.is_marked && (
+                                          <span
+                                            style={{
+                                              color: "var(--accent-gold)",
+                                              marginRight: "6px",
+                                              fontSize: "0.62rem",
+                                              fontWeight: 800,
+                                            }}
+                                          >
+                                            [DRAW]
+                                          </span>
+                                        )}
+                                        {hist.date}
+                                      </span>
+                                    </div>
+                                  );
+                                })
                             ) : (
                               <div
                                 style={{
@@ -1843,16 +2265,15 @@ function SofascoreData() {
       {/* Footer Section */}
       <footer className="app-footer">
         <div className="footer-text">
-          SofaScore Live Data Engine • Direct API Pipeline •
-          Active Today
+          SofaScore Live Data Engine • Direct API Pipeline • Active Today
         </div>
         <div
           className="footer-text"
           style={{ fontSize: "0.75rem", opacity: 0.6 }}
         >
-          Powered by SofaScore APIs with ❤️ utilizing Vite React
-          and obsidian aesthetics. Sports predictions are calculations,
-          not absolute guarantees.
+          Powered by SofaScore APIs with ❤️ utilizing Vite React and obsidian
+          aesthetics. Sports predictions are calculations, not absolute
+          guarantees.
         </div>
       </footer>
 
