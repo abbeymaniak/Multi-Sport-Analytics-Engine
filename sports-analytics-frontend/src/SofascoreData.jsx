@@ -201,7 +201,8 @@ const shouldFilterOutLeague = (league) => {
   if (!league) return false;
   // Forbidden league terms: u14, u15, u16, u17, u13, liga 6, juniori, round-robin, klasa, liga veterana, Amateur, IV, puchar, Derde, vierde, fkf, V
   // Roman numerals IV and V use word boundaries (\biv\b and \bv\b) to avoid false positives (like division or vs)
-  const forbiddenRegex = /u14|u15|u16|u17|u13|liga 6|juniori|round-robin|klasa|liga veterana|amateur|puchar|derde|vierde|fkf|\biv\b|\bv\b/i;
+  const forbiddenRegex =
+    /u14|u15|u16|u17|u13|liga 6|juniori|round-robin|klasa|liga veterana|amateur|puchar|derde|friendlies|vierde|fkf|divize b|divize E|3. NL - istok|3. NL - centar|3. NL - zapad|3. NL - jug|Silver League|\biv\b|\bv\b/i;
   return forbiddenRegex.test(league);
 };
 
@@ -339,7 +340,12 @@ function SofascoreData() {
   const leaguesList = useMemo(() => {
     const leagues = new Set();
     matches.forEach((m) => {
-      if (m.league && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+      if (
+        m.league &&
+        m.history &&
+        m.history.length > 0 &&
+        !shouldFilterOutLeague(m.league)
+      ) {
         leagues.add(m.league);
       }
     });
@@ -349,7 +355,12 @@ function SofascoreData() {
   const datesList = useMemo(() => {
     const dates = new Set();
     matches.forEach((m) => {
-      if (m.date && m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league)) {
+      if (
+        m.date &&
+        m.history &&
+        m.history.length > 0 &&
+        !shouldFilterOutLeague(m.league)
+      ) {
         dates.add(m.date);
       }
     });
@@ -427,9 +438,7 @@ function SofascoreData() {
     // Filter out matches that have no H2H data and matches from forbidden leagues
     let result = matches.filter(
       (m) =>
-        m.history &&
-        m.history.length > 0 &&
-        !shouldFilterOutLeague(m.league),
+        m.history && m.history.length > 0 && !shouldFilterOutLeague(m.league),
     );
 
     // 1. Text Search Input

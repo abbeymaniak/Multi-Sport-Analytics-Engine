@@ -1,0 +1,25 @@
+2026/06/30-03:20:04.185 22b528 Reusing MANIFEST /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/06/30-03:20:04.185 22b528 Recovering log #52
+2026/06/30-03:20:04.186 22b528 Reusing old log /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/000052.log 
+2026/06/30-03:20:05.875 22b528 Level-0 table #57: started
+2026/06/30-03:20:05.877 22b528 Level-0 table #57: 5347 bytes OK
+2026/06/30-03:20:05.879 22b528 Delete type=0 #52
+2026/06/30-03:20:05.879 22b528 Manual compaction at level-0 from '\x00$\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at '\x00$\x00\x00\x05' @ 1390 : 1
+2026/06/30-03:20:05.879 22b528 Compacting 1@0 + 1@1 files
+2026/06/30-03:20:05.881 22b528 Generated table #58@0: 116 keys, 2677 bytes
+2026/06/30-03:20:05.881 22b528 Compacted 1@0 + 1@1 files => 2677 bytes
+2026/06/30-03:20:05.882 22b528 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/30-03:20:05.883 22b528 Delete type=2 #57
+2026/06/30-03:20:05.883 22b528 Manual compaction at level-0 from '\x00$\x00\x00\x05' @ 1390 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/06/30-03:20:06.385 22b52b Manual compaction at level-0 from '\x00%\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00&\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/06/30-03:20:07.348 22b52b Level-0 table #60: started
+2026/06/30-03:20:07.350 22b52b Level-0 table #60: 1338 bytes OK
+2026/06/30-03:20:07.352 22b52b Delete type=0 #56
+2026/06/30-03:20:07.352 22b52b Delete type=2 #54
+2026/06/30-03:20:07.352 22b528 Manual compaction at level-0 from '\x00&\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at '\x00&\x00\x00\x05' @ 1440 : 1
+2026/06/30-03:20:07.352 22b528 Compacting 1@0 + 1@1 files
+2026/06/30-03:20:07.354 22b528 Generated table #61@0: 121 keys, 2719 bytes
+2026/06/30-03:20:07.354 22b528 Compacted 1@0 + 1@1 files => 2719 bytes
+2026/06/30-03:20:07.355 22b528 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/30-03:20:07.355 22b528 Delete type=2 #60
+2026/06/30-03:20:07.355 22b528 Manual compaction at level-0 from '\x00&\x00\x00\x05' @ 1440 : 1 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at (end)

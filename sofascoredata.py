@@ -11,6 +11,7 @@ import re
 import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 
 # --- CONFIGURATION ---
 TIMEOUT = 30000
@@ -424,14 +425,58 @@ async def main():
 
     all_matches = []
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+    profile_dir = "/Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile"
+    print(f"Using persistent browser profile: {profile_dir}")
 
-        # Initialize SofaScore session
-        print("Initializing SofaScore session...")
-        await page.goto("https://www.sofascore.com/", wait_until="domcontentloaded")
+    ext_path = "/Users/primastech/Workspace/Multi-Sports-Analytics-Engine/urban_vpn"
+
+    async with async_playwright() as p:
+        context = await p.chromium.launch_persistent_context(
+            user_data_dir=profile_dir,
+            headless=False,
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                f"--disable-extensions-except={ext_path}",
+                f"--load-extension={ext_path}",
+            ],
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/125.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 800},
+            locale="en-US",
+            timezone_id="Europe/London",
+            extra_http_headers={
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+            }
+        )
+        
+        # Apply deep stealth patches to the entire context (persists for all pages)
+        await Stealth().apply_stealth_async(context)
+
+        page = await context.new_page()
+
+        # Let the user connect the VPN before starting
+        print("\n" + "="*60)
+        print("  [VPN STARTUP PAUSE]")
+        print("  A browser window has opened.")
+        print("  1. Click the Urban VPN extension icon in the top-right.")
+        print("  2. Connect to any location (e.g., Germany, Canada, UK).")
+        print("  3. Once connected, press Enter here to start scraping...")
+        print("="*60 + "\n")
+        await asyncio.get_event_loop().run_in_executor(None, input)
+
+        # Initialize SofaScore session — visit the football schedule page so
+        # Cloudflare sees a realistic navigation path before any API calls.
+        print("Initializing SofaScore session (stealth mode)...")
+        await page.goto("https://www.sofascore.com/", wait_until="domcontentloaded", timeout=TIMEOUT)
         await asyncio.sleep(2)
+        await page.goto("https://www.sofascore.com/football", wait_until="domcontentloaded", timeout=TIMEOUT)
+        await asyncio.sleep(3)
+        print("Session ready.")
 
         # 1. Fetch ALL scheduled events for the target date.
         #    SofaScore splits results across two complementary endpoints:
@@ -443,26 +488,40 @@ async def main():
         seen_ids = set()
         events = []
 
-        for label, url in [("primary", base_url), ("inverse", f"{base_url}/inverse")]:
-            evs = await get_json(page, url)
-            if evs and isinstance(evs, dict):
-                batch = evs.get('events', [])
-                new_count = 0
-                for ev in batch:
-                    eid = ev.get('id')
-                    if eid and eid not in seen_ids:
-                        seen_ids.add(eid)
-                        events.append(ev)
-                        new_count += 1
-                print(f"  [{label}] Fetched {len(batch)} events, {new_count} new (after dedup)")
-            else:
-                print(f"  [{label}] No data returned")
-            await asyncio.sleep(0.3)
+        while True:
+            seen_ids.clear()
+            events.clear()
+            
+            for label, url in [("primary", base_url), ("inverse", f"{base_url}/inverse")]:
+                evs = await get_json(page, url)
+                if evs and isinstance(evs, dict):
+                    batch = evs.get('events', [])
+                    new_count = 0
+                    for ev in batch:
+                        eid = ev.get('id')
+                        if eid and eid not in seen_ids:
+                            seen_ids.add(eid)
+                            events.append(ev)
+                            new_count += 1
+                    print(f"  [{label}] Fetched {len(batch)} events, {new_count} new (after dedup)")
+                else:
+                    print(f"  [{label}] No data returned")
+                await asyncio.sleep(0.3)
 
-        if not events:
-            print("ERROR: No events found from SofaScore. The API may be unreachable.")
-            await browser.close()
-            return
+            if events:
+                break
+                
+            print("\n" + "="*60)
+            print("  [VPN / CAPTCHA REQUIRED]")
+            print("  No matches were returned (likely blocked by Cloudflare).")
+            print("  1. Please check the open browser window.")
+            print("  2. Turn on the Urban VPN extension (or solve any captcha).")
+            print("  3. Make sure the page loads and shows data.")
+            print("  4. Press Enter here to retry...")
+            print("="*60 + "\n")
+            
+            # Wait for user input in the executor
+            await asyncio.get_event_loop().run_in_executor(None, input)
 
         total = len(events)
         print(f"\nFound {total} total unique football events for {today}.\n")
@@ -581,7 +640,23 @@ async def main():
 
             # ---- Fetch H2H history directly from SofaScore ----
             if event_id:
-                h2h_data = await get_json(page, f"https://www.sofascore.com/api/v1/event/{event_id}/h2h")
+                h2h_data = None
+                max_retries = 3
+                retry_delay = 30
+                for attempt in range(1, max_retries + 1):
+                    h2h_data = await get_json(page, f"https://www.sofascore.com/api/v1/event/{event_id}/h2h")
+                    if h2h_data is not None:
+                        if attempt > 1:
+                            print(f"  [H2H Fetch] Success on attempt {attempt} for {home_team} vs {away_team}!")
+                        break
+                    
+                    if attempt < max_retries:
+                        print(f"  [H2H Fetch] Failed (Attempt {attempt}/{max_retries}) for {home_team} vs {away_team}. Waiting {retry_delay}s before retrying...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay += 30  # increment wait time: 30s -> 60s -> 90s...
+                    else:
+                        print(f"  [H2H Fetch] All {max_retries} attempts failed for {home_team} vs {away_team}. Falling back to synthetic history if available.")
+                
                 match["history"] = parse_h2h_events(h2h_data, home_team, away_team)
                 match["marked_count"] = sum(1 for h in match["history"] if h.get("is_marked"))
                 match["total_history_count"] = len(match["history"])
@@ -601,7 +676,7 @@ async def main():
             if (idx + 1) % 50 == 0 or (idx + 1) == total:
                 print(f"  [{idx + 1}/{total}] Processed — {home_team} vs {away_team}")
 
-        await browser.close()
+        await context.close()
 
     print(f"\n{'='*60}")
     print(f"  Completed: {len(all_matches)} matches processed")
