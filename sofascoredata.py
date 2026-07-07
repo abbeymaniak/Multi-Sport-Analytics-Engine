@@ -428,17 +428,14 @@ async def main():
     profile_dir = "/Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile"
     print(f"Using persistent browser profile: {profile_dir}")
 
-    ext_path = "/Users/primastech/Workspace/Multi-Sports-Analytics-Engine/urban_vpn"
-
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=profile_dir,
-            headless=False,
+            executable_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            headless=True,
             args=[
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
-                f"--disable-extensions-except={ext_path}",
-                f"--load-extension={ext_path}",
             ],
             user_agent=(
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -459,16 +456,6 @@ async def main():
 
         page = await context.new_page()
 
-        # Let the user connect the VPN before starting
-        print("\n" + "="*60)
-        print("  [VPN STARTUP PAUSE]")
-        print("  A browser window has opened.")
-        print("  1. Click the Urban VPN extension icon in the top-right.")
-        print("  2. Connect to any location (e.g., Germany, Canada, UK).")
-        print("  3. Once connected, press Enter here to start scraping...")
-        print("="*60 + "\n")
-        await asyncio.get_event_loop().run_in_executor(None, input)
-
         # Initialize SofaScore session — visit the football schedule page so
         # Cloudflare sees a realistic navigation path before any API calls.
         print("Initializing SofaScore session (stealth mode)...")
@@ -478,51 +465,68 @@ async def main():
         await asyncio.sleep(3)
         print("Session ready.")
 
-        # 1. Fetch ALL scheduled events for the target date.
-        #    SofaScore splits results across two complementary endpoints:
-        #      - /scheduled-events/{date}          → "primary" batch
-        #      - /scheduled-events/{date}/inverse   → "inverse" batch (remaining events)
-        #    We merge both and de-duplicate by event ID to get the complete list.
-        base_url = f"https://www.sofascore.com/api/v1/sport/football/scheduled-events/{today}"
+        # 1. Fetch all scheduled tournaments for the target date (since global endpoint is deprecated)
+        print("Fetching scheduled tournaments list...")
+        tournaments = []
+        page_num = 1
+        while True:
+            url = f"https://www.sofascore.com/api/v1/sport/football/scheduled-tournaments/{today}/page/{page_num}"
+            data = await get_json(page, url)
+            if not data or "scheduled" not in data:
+                break
+            
+            for item in data.get("scheduled", []):
+                t = item.get("tournament", {})
+                ut = t.get("uniqueTournament", {})
+                tz_counts = item.get("timezoneEventCount", {})
+                ev_count = sum(tz_counts.values()) if isinstance(tz_counts, dict) else 0
+                
+                if ev_count > 0:
+                    tournaments.append({
+                        "ut_id": ut.get("id") if ut else None,
+                        "t_id": t.get("id"),
+                        "name": t.get("name"),
+                        "event_count": ev_count
+                    })
+                    
+            if not data.get("hasNextPage"):
+                break
+            page_num += 1
+            await asyncio.sleep(0.1)
 
+        print(f"Found {len(tournaments)} active tournaments with events.")
+
+        # 2. Fetch events for each active tournament
         seen_ids = set()
         events = []
-
-        while True:
-            seen_ids.clear()
-            events.clear()
-            
-            for label, url in [("primary", base_url), ("inverse", f"{base_url}/inverse")]:
-                evs = await get_json(page, url)
-                if evs and isinstance(evs, dict):
-                    batch = evs.get('events', [])
-                    new_count = 0
-                    for ev in batch:
-                        eid = ev.get('id')
-                        if eid and eid not in seen_ids:
-                            seen_ids.add(eid)
-                            events.append(ev)
-                            new_count += 1
-                    print(f"  [{label}] Fetched {len(batch)} events, {new_count} new (after dedup)")
-                else:
-                    print(f"  [{label}] No data returned")
-                await asyncio.sleep(0.3)
-
-            if events:
-                break
+        
+        for idx, t in enumerate(tournaments):
+            if t["ut_id"]:
+                url = f"https://www.sofascore.com/api/v1/unique-tournament/{t['ut_id']}/scheduled-events/{today}"
+            else:
+                url = f"https://www.sofascore.com/api/v1/tournament/{t['t_id']}/scheduled-events/{today}"
                 
-            print("\n" + "="*60)
-            print("  [VPN / CAPTCHA REQUIRED]")
-            print("  No matches were returned (likely blocked by Cloudflare).")
-            print("  1. Please check the open browser window.")
-            print("  2. Turn on the Urban VPN extension (or solve any captcha).")
-            print("  3. Make sure the page loads and shows data.")
-            print("  4. Press Enter here to retry...")
-            print("="*60 + "\n")
+            evs = await get_json(page, url)
+            if evs and isinstance(evs, dict):
+                batch = evs.get('events', [])
+                new_count = 0
+                for ev in batch:
+                    eid = ev.get('id')
+                    if eid and eid not in seen_ids:
+                        seen_ids.add(eid)
+                        events.append(ev)
+                        new_count += 1
             
-            # Wait for user input in the executor
-            await asyncio.get_event_loop().run_in_executor(None, input)
+            if (idx + 1) % 20 == 0 or (idx + 1) == len(tournaments):
+                print(f"  [{idx + 1}/{len(tournaments)}] Queried {t['name']} — total unique events so far: {len(events)}")
+                
+            await asyncio.sleep(0.15)
 
+        if not events:
+            print("ERROR: No events found from SofaScore tournaments.")
+            await context.close()
+            return
+            
         total = len(events)
         print(f"\nFound {total} total unique football events for {today}.\n")
 

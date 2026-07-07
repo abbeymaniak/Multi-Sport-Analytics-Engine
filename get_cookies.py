@@ -18,17 +18,14 @@ async def main():
     print("=" * 60)
 
     async with async_playwright() as p:
-        ext_path = os.path.join(os.getcwd(), "urban_vpn")
-        
-        # Launch with persistent context and load the VPN extension
+        # Launch with persistent context pointing to Google Chrome
         context = await p.chromium.launch_persistent_context(
             user_data_dir=profile_dir,
+            executable_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             headless=False,
             args=[
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
-                f"--disable-extensions-except={ext_path}",
-                f"--load-extension={ext_path}",
             ],
             viewport={"width": 1280, "height": 800},
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
@@ -37,7 +34,7 @@ async def main():
         page = await context.new_page()
         
         # Go to the football page directly
-        await page.goto("https://www.sofascore.com/")
+        await page.goto("https://www.sofascore.com/football")
         
         # Wait for user to confirm they solved it
         await asyncio.get_event_loop().run_in_executor(None, input, "Press Enter here once the page is fully loaded and matches are visible...")

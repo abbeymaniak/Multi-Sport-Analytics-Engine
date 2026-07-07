@@ -625,7 +625,7 @@ function SofascoreData() {
         <div className="brand-badge" style={{ color: "var(--accent-cyan)" }}>
           <Zap size={14} fill="currentColor" /> SofaScore Direct Feed
         </div>
-        <h1 className="app-title">Hugoboss Live Data Engine</h1>
+        <h1 className="app-title">SofaScore Live Data Engine</h1>
         <p className="app-subtitle">
           Real-time predictive analytics sourced exclusively from SofaScore
           APIs. Events, standings, form, H2H history, and odds fetched directly
@@ -1046,7 +1046,7 @@ function SofascoreData() {
                       <div className="card-header-section">
                         <div className="league-time-row">
                           <span className="league-badge" title={match.league}>
-                            {getLeagueFlag(match.league)} {match.league}
+                            {match.league}
                           </span>
                           <span
                             className={`time-badge ${match.status === "finished" ? "finished" : match.status === "inprogress" ? "live" : match.status === "postponed" ? "postponed" : ""}`}
@@ -1627,52 +1627,39 @@ function SofascoreData() {
                         >
                           <div className="history-header-row">
                             <span>
-                              {activeTab === "DRAWS" ||
-                              activeTab === "H2H_DRAWS"
-                                ? `SofaScore H2H Draws (${match.history.filter((h) => h.is_marked).length})`
-                                : `SofaScore H2H Matches (${match.history.length})`}
+                              SofaScore H2H Matches ({match.history.length})
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history
-                                .filter((hist) => {
-                                  if (
-                                    activeTab === "DRAWS" ||
-                                    activeTab === "H2H_DRAWS"
-                                  ) {
-                                    return !!hist.is_marked;
-                                  }
-                                  return true;
-                                })
-                                .map((hist, hIdx) => {
-                                  return (
-                                    <div
-                                      key={hIdx}
-                                      className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
-                                    >
-                                      <span className="history-fixture">
-                                        {hist.detail}
-                                      </span>
-                                      <span className="history-date">
-                                        {hist.is_marked && (
-                                          <span
-                                            style={{
-                                              color: "var(--accent-gold)",
-                                              marginRight: "6px",
-                                              fontSize: "0.62rem",
-                                              fontWeight: 800,
-                                            }}
-                                          >
-                                            [DRAW]
-                                          </span>
-                                        )}
-                                        {hist.date}
-                                      </span>
-                                    </div>
-                                  );
-                                })
+                              match.history.map((hist, hIdx) => {
+                                return (
+                                  <div
+                                    key={hIdx}
+                                    className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
+                                  >
+                                    <span className="history-fixture">
+                                      {hist.detail}
+                                    </span>
+                                    <span className="history-date">
+                                      {hist.is_marked && (
+                                        <span
+                                          style={{
+                                            color: "var(--accent-gold)",
+                                            marginRight: "6px",
+                                            fontSize: "0.62rem",
+                                            fontWeight: 800,
+                                          }}
+                                        >
+                                          [DRAW]
+                                        </span>
+                                      )}
+                                      {hist.date}
+                                    </span>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <div
                                 style={{
@@ -1864,8 +1851,7 @@ function SofascoreData() {
                   }
 
                   const isCupOrFriendly =
-                    match.league &&
-                    /cup|friendly|kup|copa|coupe/i.test(match.league);
+                    match.league && /cup|friendly/i.test(match.league);
 
                   return (
                     <article
@@ -1900,7 +1886,6 @@ function SofascoreData() {
 
                         {/* 2. League Label */}
                         <div className="line-league" title={match.league}>
-                          {getLeagueFlag(match.league)}{" "}
                           {match.league.split(" » ").pop() || match.league}
                         </div>
 
@@ -2191,52 +2176,39 @@ function SofascoreData() {
                         >
                           <div className="history-header-row">
                             <span>
-                              {activeTab === "DRAWS" ||
-                              activeTab === "H2H_DRAWS"
-                                ? `SofaScore H2H Draws (${match.history.filter((h) => h.is_marked).length})`
-                                : `SofaScore H2H Matches (${match.history.length})`}
+                              SofaScore H2H Matches ({match.history.length})
                             </span>
                             <span>Date</span>
                           </div>
                           <div className="history-list">
                             {match.history && match.history.length > 0 ? (
-                              match.history
-                                .filter((hist) => {
-                                  if (
-                                    activeTab === "DRAWS" ||
-                                    activeTab === "H2H_DRAWS"
-                                  ) {
-                                    return !!hist.is_marked;
-                                  }
-                                  return true;
-                                })
-                                .map((hist, hIdx) => {
-                                  return (
-                                    <div
-                                      key={hIdx}
-                                      className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
-                                    >
-                                      <span className="history-fixture">
-                                        {hist.detail}
-                                      </span>
-                                      <span className="history-date">
-                                        {hist.is_marked && (
-                                          <span
-                                            style={{
-                                              color: "var(--accent-gold)",
-                                              marginRight: "6px",
-                                              fontSize: "0.62rem",
-                                              fontWeight: 800,
-                                            }}
-                                          >
-                                            [DRAW]
-                                          </span>
-                                        )}
-                                        {hist.date}
-                                      </span>
-                                    </div>
-                                  );
-                                })
+                              match.history.map((hist, hIdx) => {
+                                return (
+                                  <div
+                                    key={hIdx}
+                                    className={`history-row ${hist.is_marked ? "is-draw" : ""}`}
+                                  >
+                                    <span className="history-fixture">
+                                      {hist.detail}
+                                    </span>
+                                    <span className="history-date">
+                                      {hist.is_marked && (
+                                        <span
+                                          style={{
+                                            color: "var(--accent-gold)",
+                                            marginRight: "6px",
+                                            fontSize: "0.62rem",
+                                            fontWeight: 800,
+                                          }}
+                                        >
+                                          [DRAW]
+                                        </span>
+                                      )}
+                                      {hist.date}
+                                    </span>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <div
                                 style={{

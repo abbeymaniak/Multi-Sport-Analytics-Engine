@@ -1,25 +1,15 @@
-2026/06/30-03:20:04.185 22b528 Reusing MANIFEST /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/06/30-03:20:04.185 22b528 Recovering log #52
-2026/06/30-03:20:04.186 22b528 Reusing old log /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/000052.log 
-2026/06/30-03:20:05.875 22b528 Level-0 table #57: started
-2026/06/30-03:20:05.877 22b528 Level-0 table #57: 5347 bytes OK
-2026/06/30-03:20:05.879 22b528 Delete type=0 #52
-2026/06/30-03:20:05.879 22b528 Manual compaction at level-0 from '\x00$\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at '\x00$\x00\x00\x05' @ 1390 : 1
-2026/06/30-03:20:05.879 22b528 Compacting 1@0 + 1@1 files
-2026/06/30-03:20:05.881 22b528 Generated table #58@0: 116 keys, 2677 bytes
-2026/06/30-03:20:05.881 22b528 Compacted 1@0 + 1@1 files => 2677 bytes
-2026/06/30-03:20:05.882 22b528 compacted to: files[ 0 1 1 0 0 0 0 ]
-2026/06/30-03:20:05.883 22b528 Delete type=2 #57
-2026/06/30-03:20:05.883 22b528 Manual compaction at level-0 from '\x00$\x00\x00\x05' @ 1390 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at (end)
-2026/06/30-03:20:06.385 22b52b Manual compaction at level-0 from '\x00%\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00&\x00\x00\x00' @ 0 : 0; will stop at (end)
-2026/06/30-03:20:07.348 22b52b Level-0 table #60: started
-2026/06/30-03:20:07.350 22b52b Level-0 table #60: 1338 bytes OK
-2026/06/30-03:20:07.352 22b52b Delete type=0 #56
-2026/06/30-03:20:07.352 22b52b Delete type=2 #54
-2026/06/30-03:20:07.352 22b528 Manual compaction at level-0 from '\x00&\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at '\x00&\x00\x00\x05' @ 1440 : 1
-2026/06/30-03:20:07.352 22b528 Compacting 1@0 + 1@1 files
-2026/06/30-03:20:07.354 22b528 Generated table #61@0: 121 keys, 2719 bytes
-2026/06/30-03:20:07.354 22b528 Compacted 1@0 + 1@1 files => 2719 bytes
-2026/06/30-03:20:07.355 22b528 compacted to: files[ 0 1 1 0 0 0 0 ]
-2026/06/30-03:20:07.355 22b528 Delete type=2 #60
-2026/06/30-03:20:07.355 22b528 Manual compaction at level-0 from '\x00&\x00\x00\x05' @ 1440 : 1 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/06/30-23:26:28.543 486ddb Reusing MANIFEST /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/06/30-23:26:28.543 486ddb Recovering log #86
+2026/06/30-23:26:28.544 486ddb Reusing old log /Users/primastech/Workspace/Multi-Sports-Analytics-Engine/.chrome_profile/Default/IndexedDB/https_www.sofascore.com_0.indexeddb.leveldb/000086.log 
+2026/06/30-23:26:28.544 486ddb Delete type=2 #85
+2026/06/30-23:26:28.683 486dd9 Level-0 table #91: started
+2026/06/30-23:26:28.684 486dd9 Level-0 table #91: 3205 bytes OK
+2026/06/30-23:26:28.686 486dd9 Delete type=0 #86
+2026/06/30-23:26:28.686 486dd9 Manual compaction at level-0 from '\x001\x00\x00\x00' @ 72057594037927935 : 1 .. '\x002\x00\x00\x00' @ 0 : 0; will stop at '\x001\x00\x00\x05' @ 1949 : 1
+2026/06/30-23:26:28.686 486dd9 Compacting 1@0 + 1@1 files
+2026/06/30-23:26:28.687 486dd9 Generated table #92@0: 152 keys, 3119 bytes
+2026/06/30-23:26:28.687 486dd9 Compacted 1@0 + 1@1 files => 3119 bytes
+2026/06/30-23:26:28.689 486dd9 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/30-23:26:28.689 486dd9 Delete type=2 #91
+2026/06/30-23:26:28.689 486dd9 Manual compaction at level-0 from '\x001\x00\x00\x05' @ 1949 : 1 .. '\x002\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/06/30-23:26:28.877 486ddf Manual compaction at level-0 from '\x002\x00\x00\x00' @ 72057594037927935 : 1 .. '\x003\x00\x00\x00' @ 0 : 0; will stop at (end)
