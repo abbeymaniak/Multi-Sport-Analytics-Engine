@@ -1,0 +1,8 @@
+.chrome_profile/
+__pycache__/
+*.log
+.DS_Store
+sports_analytics.db
+sofascore_data.json
+sports_data.json
+cookies.json

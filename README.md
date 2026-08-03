@@ -179,7 +179,10 @@ In addition to the core analytics engine, the project features a **completely st
 
 ### Run SofaScore Standalone Feed:
 ```bash
-# Run full crawler for today's date (fetches standings, forms, H2Hs, odds, predictions)
+# Recommended: Clean up older data (last 5 days) and fetch all of today's matches
+python daily_refresh.py
+
+# Run full crawler for today's date without cleaning older data
 python sofascoredata.py
 
 # Run full crawler for a custom date

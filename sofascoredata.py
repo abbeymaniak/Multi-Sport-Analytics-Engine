@@ -644,22 +644,9 @@ async def main():
 
             # ---- Fetch H2H history directly from SofaScore ----
             if event_id:
-                h2h_data = None
-                max_retries = 3
-                retry_delay = 30
-                for attempt in range(1, max_retries + 1):
-                    h2h_data = await get_json(page, f"https://www.sofascore.com/api/v1/event/{event_id}/h2h")
-                    if h2h_data is not None:
-                        if attempt > 1:
-                            print(f"  [H2H Fetch] Success on attempt {attempt} for {home_team} vs {away_team}!")
-                        break
-                    
-                    if attempt < max_retries:
-                        print(f"  [H2H Fetch] Failed (Attempt {attempt}/{max_retries}) for {home_team} vs {away_team}. Waiting {retry_delay}s before retrying...")
-                        await asyncio.sleep(retry_delay)
-                        retry_delay += 30  # increment wait time: 30s -> 60s -> 90s...
-                    else:
-                        print(f"  [H2H Fetch] All {max_retries} attempts failed for {home_team} vs {away_team}. Falling back to synthetic history if available.")
+                h2h_data = await get_json(page, f"https://www.sofascore.com/api/v1/event/{event_id}/h2h")
+                if h2h_data is None:
+                    print(f"  [H2H Fetch] Failed for {home_team} vs {away_team}. Falling back to synthetic history if available.")
                 
                 match["history"] = parse_h2h_events(h2h_data, home_team, away_team)
                 match["marked_count"] = sum(1 for h in match["history"] if h.get("is_marked"))

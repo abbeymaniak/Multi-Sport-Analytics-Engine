@@ -1309,3 +1309,95 @@ body {
 
 .match-card.highlight-turnaround::before { background: var(--grad-draws); }
 .match-card.highlight-turnaround { border-color: rgba(245, 158, 11, 0.25); }
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 768px) {
+  /* Container and Header Adjustments */
+  .app-container {
+    padding: 20px 12px;
+  }
+  
+  .app-title {
+    font-size: 2rem;
+  }
+  
+  .app-subtitle {
+    font-size: 0.95rem;
+  }
+
+  /* Grid and Flex Layouts */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .matches-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Control Panel Adjustments */
+  .filter-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-wrapper, .select-wrapper {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  /* Tabs Horizontal Scrolling */
+  .tabs-container {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    justify-content: flex-start;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* List View Adjustments */
+  .line-main-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  
+  .line-teams-roster {
+    min-width: unset;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  
+  .line-team {
+    min-width: unset;
+  }
+
+  .line-team-name {
+    max-width: 130px;
+    font-size: 0.9rem;
+  }
+
+  .line-active-market, .line-prob-pct, .line-graph-wrapper {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .line-graph-wrapper {
+    margin-top: 8px;
+  }
+
+  .line-actions {
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 4px;
+  }
+}
+
